@@ -37,3 +37,4 @@ def validate_master_equipment(
         )
 
     return equipment
+

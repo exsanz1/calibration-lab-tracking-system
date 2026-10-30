@@ -478,3 +478,4 @@ def test_dashboard_alerts_display(client: TestClient, db_session: Session) -> No
     assert "Admin Hold In Effect" in html
     # Master standard navigation item
     assert "Master Standards" in html
+

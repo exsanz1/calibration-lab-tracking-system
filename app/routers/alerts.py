@@ -20,3 +20,4 @@ def api_daily_alerts(db: Session = Depends(get_db)) -> DailyAlertSummary:
     3. master_alerts: Master equipments expiring within 60 days, 30 days, or already EXPIRED.
     """
     return generate_daily_alerts(db)
+

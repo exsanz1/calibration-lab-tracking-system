@@ -61,3 +61,4 @@ class DailyAlertSummary(BaseModel):
     sla_alerts: list[SLAAlertItem]
     admin_holds: list[AdminHoldAlertItem]
     master_alerts: list[MasterEquipmentAlertItem]
+

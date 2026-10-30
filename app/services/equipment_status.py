@@ -101,3 +101,4 @@ def get_equipment_alert_info(
         "badge_class": "bg-emerald-50 text-emerald-700 border border-emerald-300 font-medium",
         "days_until_due": days_until_due,
     }
+

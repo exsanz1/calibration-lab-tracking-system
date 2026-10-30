@@ -149,3 +149,4 @@ def generate_daily_alerts(
         admin_holds=admin_holds,
         master_alerts=master_alerts,
     )
+

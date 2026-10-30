@@ -220,3 +220,4 @@ def page_scan_detail(
             "statuses": all_statuses,
         },
     )
+

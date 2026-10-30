@@ -64,3 +64,4 @@ def save_certificate(qr_tag: str, file: UploadFile) -> str:
         shutil.copyfileobj(file.file, buffer)
 
     return str(target_path).replace("\\", "/")
+

@@ -55,3 +55,4 @@ def db_session() -> Generator[Session, None, None]:
         yield db
     finally:
         db.close()
+
