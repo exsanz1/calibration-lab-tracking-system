@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Orders & PO Tracking - CalibTrack{% endblock %}
+{% block content %}
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+    <div>
+        <h2 class="text-2xl font-bold text-text-main">Orders & Tracking</h2>
+        <p class="text-text-muted text-sm mt-1">Quotations, PO verification, BAST intake & administrative releases</p>
+    </div>
+    <a href="/orders/create"
+       class="bg-brand-primary hover:bg-brand-hover text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors shadow-sm inline-flex items-center gap-1.5 self-start sm:self-auto">
+        <span>+</span> New Order
+    </a>
+</div>
+
+<div class="bg-surface rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead>
+                <tr class="border-b border-slate-200 bg-slate-50 text-left">
+                    <th class="px-6 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Quotation No</th>
+                    <th class="px-6 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Customer</th>
+                    <th class="px-6 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">PO Status</th>
+                    <th class="px-6 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Service</th>
+                    <th class="px-6 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Instruments</th>
+                    <th class="px-6 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Received</th>
+                    <th class="px-6 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">SLA Target</th>
+                    <th class="px-6 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Invoice</th>
+                    <th class="px-6 py-3 text-right text-xs font-semibold text-text-muted uppercase tracking-wider">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for order in orders %}
+                <tr class="hover:bg-brand-subtle/30 transition-colors">
+                    <td class="px-6 py-4 text-sm font-medium text-text-main whitespace-nowrap">
+                        {{ order.quotation_no or ('Order #' ~ order.id) }}
+                        {% if order.bast_no %}
+                        <div class="text-xs text-text-muted font-mono mt-0.5">{{ order.bast_no }}</div>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 text-sm text-text-main font-medium">
+                        {{ order.customer.company_name }}
+                        <div class="text-xs text-text-muted">PIC: {{ order.customer.pic_name }}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        {% if order.po_status.value == 'PENDING' %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200" title="Admin Hold: Certificates cannot be released">
+                            HOLD ADMIN (PO PENDING)
+                        </span>
+                        {% else %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            PO RECEIVED
+                        </span>
+                        {% if order.po_no %}
+                        <div class="text-xs text-text-muted font-mono mt-0.5">{{ order.po_no }}</div>
+                        {% endif %}
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-700 font-medium">
+                            {{ order.service_type.value | replace('_', ' ') }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-sm text-text-muted whitespace-nowrap">
+                        <a href="/orders/{{ order.id }}/bast" class="text-brand-primary hover:underline font-medium">
+                            {{ order.job_items | length }} instrument(s) →
+                        </a>
+                    </td>
+                    <td class="px-6 py-4 text-sm text-text-muted font-mono whitespace-nowrap">
+                        {{ order.received_date or '-' }}
+                    </td>
+                    <td class="px-6 py-4 text-sm text-text-muted font-mono whitespace-nowrap">
+                        {{ order.target_sla_date or '-' }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        {% if order.invoice_status.value == 'PAID' %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700">PAID</span>
+                        {% elif order.invoice_status.value == 'INVOICED' %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-sky-50 text-brand-primary">INVOICED</span>
+                        {% else %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">UNBILLED</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 text-right whitespace-nowrap text-sm">
+                        <a href="/orders/{{ order.id }}/bast"
+                           class="inline-flex items-center gap-1 text-xs font-semibold text-brand-primary bg-brand-subtle hover:bg-sky-100 px-2.5 py-1.5 rounded-md transition-colors mr-2">
+                            📦 BAST
+                        </a>
+                        <a href="/orders/{{ order.id }}/edit"
+                           class="text-xs font-semibold text-slate-600 hover:text-text-main px-2 py-1.5 rounded-md hover:bg-slate-100 transition-colors mr-2">
+                            Edit
+                        </a>
+                        <form method="post" action="/orders/{{ order.id }}/delete" class="inline"
+                              onsubmit="return confirm('Delete this order and all its registered instruments?')">
+                            <button type="submit" class="text-xs font-semibold text-rose-600 hover:text-rose-700 px-2 py-1.5 rounded-md hover:bg-rose-50 transition-colors">
+                                Delete
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+                {% if not orders %}
+                <tr>
+                    <td colspan="9" class="px-6 py-12 text-center text-text-muted text-sm">
+                        No orders recorded yet. <a href="/orders/create" class="text-brand-primary underline font-medium">Create your first order</a>.
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

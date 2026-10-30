@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}CalibTrack{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                colors: {
+                    'brand': { 'primary': '#0099FF', 'hover': '#007CE8', 'subtle': '#F0F8FF' },
+                    'canvas': '#F8FAFC',
+                    'surface': '#FFFFFF',
+                    'text-main': '#0F172A',
+                    'text-muted': '#64748B',
+                }
+            }
+        }
+    }
+    </script>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+</head>
+<body class="bg-canvas min-h-screen">
+    <div class="flex">
+        <!-- Sidebar -->
+        <aside class="w-64 bg-surface min-h-screen border-r border-slate-200 fixed">
+            <div class="p-6 border-b border-slate-200">
+                <h1 class="text-2xl font-bold text-brand-primary">⚙ CalibTrack</h1>
+                <p class="text-xs text-text-muted mt-1">Calibration Lab System</p>
+            </div>
+            <nav class="mt-4">
+                {% set nav_items = [
+                    ("/", "Dashboard", "📊"),
+                    ("/customers", "Customers", "🏢"),
+                    ("/orders", "Orders", "📋"),
+                ] %}
+                {% for href, label, icon in nav_items %}
+                <a href="{{ href }}"
+                   class="flex items-center gap-3 px-6 py-3 text-sm font-medium transition-colors
+                          {% if request.url.path.startswith(href) and href != '/' or request.url.path == href %}
+                          text-brand-primary bg-brand-subtle border-l-4 border-brand-primary
+                          {% else %}
+                          text-text-muted hover:text-text-main hover:bg-slate-50 border-l-4 border-transparent
+                          {% endif %}">
+                    <span>{{ icon }}</span>
+                    {{ label }}
+                </a>
+                {% endfor %}
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="ml-64 flex-1 p-8">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+</body>
+</html>

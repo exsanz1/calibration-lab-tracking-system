@@ -25,6 +25,37 @@ class JobItemCreate(JobItemBase):
     pass
 
 
+class JobItemIntake(BaseModel):
+    """Schema for adding an instrument during BAST intake (qr_tag is generated automatically)."""
+
+    instrument_name: str
+    brand: str | None = None
+    model: str | None = None
+    serial_number: str
+    scope: Scope
+
+
+class JobItemStatusUpdate(BaseModel):
+    """Schema for updating a job item's operational status."""
+
+    status: JobStatus
+    assigned_tech: str | None = None
+    certificate_no: str | None = None
+
+
+class JobItemUpdate(BaseModel):
+    instrument_name: str | None = None
+    brand: str | None = None
+    model: str | None = None
+    serial_number: str | None = None
+    scope: Scope | None = None
+    status: JobStatus | None = None
+    assigned_tech: str | None = None
+    worksheet_file_path: str | None = None
+    certificate_no: str | None = None
+    certificate_file_path: str | None = None
+
+
 class JobItemRead(JobItemBase):
     model_config = ConfigDict(from_attributes=True)
 

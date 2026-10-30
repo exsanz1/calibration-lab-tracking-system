@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+{% block title %}BAST Intake - {{ order.quotation_no or ('Order #' ~ order.id) }} - CalibTrack{% endblock %}
+{% block content %}
+<div class="mb-6">
+    <div class="flex items-center gap-2 text-sm text-text-muted mb-2">
+        <a href="/orders" class="hover:text-text-main flex items-center gap-1">← Orders</a>
+        <span>/</span>
+        <span class="text-text-main font-medium">BAST Intake</span>
+    </div>
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+            <h2 class="text-2xl font-bold text-text-main">Berita Acara Serah Terima (BAST)</h2>
+            <div class="flex flex-wrap items-center gap-4 mt-2 text-sm text-text-muted">
+                <span>Quotation: <strong class="text-text-main">{{ order.quotation_no or '-' }}</strong></span>
+                <span>Customer: <strong class="text-text-main">{{ order.customer.company_name }}</strong></span>
+                <span>BAST No: <strong class="text-text-main">{{ order.bast_no or '-' }}</strong></span>
+                <span>PO: 
+                    {% if order.po_status.value == 'PENDING' %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                        HOLD ADMIN (PO PENDING)
+                    </span>
+                    {% else %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        PO RECEIVED: {{ order.po_no or 'Yes' }}
+                    </span>
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+        <a href="/orders/{{ order.id }}/edit" class="text-xs font-semibold text-brand-primary hover:underline">
+            Edit Order Details ↗
+        </a>
+    </div>
+</div>
+
+{% if order.po_status.value == 'PENDING' %}
+<div class="mb-6 p-4 rounded-xl border border-amber-200 bg-amber-50 flex items-start gap-3">
+    <span class="text-amber-600 text-xl font-bold">🔒</span>
+    <div>
+        <h4 class="text-sm font-semibold text-amber-800">Admin Hold Rule Active</h4>
+        <p class="text-xs text-amber-700 mt-0.5">
+            Customer PO is currently <strong>PENDING</strong>. Any instruments calibrated under this order will be held (Release Allowed = False) until PO status is updated to RECEIVED.
+        </p>
+    </div>
+</div>
+{% endif %}
+
+{% if existing_items %}
+<div class="bg-surface rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-8">
+    <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+        <div>
+            <h3 class="text-base font-semibold text-text-main">Registered Instruments ({{ existing_items | length }})</h3>
+            <p class="text-xs text-text-muted mt-0.5">Tracked under unique QR tag identifiers</p>
+        </div>
+        <span class="text-xs text-text-muted font-medium">Order #{{ order.id }}</span>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead>
+                <tr class="border-b border-slate-200 bg-slate-50 text-left">
+                    <th class="px-6 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">QR Tag</th>
+                    <th class="px-6 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Instrument</th>
+                    <th class="px-6 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Brand / Model</th>
+                    <th class="px-6 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Serial Number</th>
+                    <th class="px-6 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Scope</th>
+                    <th class="px-6 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Status</th>
+                    <th class="px-6 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Certificate Release</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for item in existing_items %}
+                <tr class="hover:bg-brand-subtle/30 transition-colors">
+                    <td class="px-6 py-4 text-sm font-mono font-bold text-brand-primary">
+                        {{ item.qr_tag }}
+                    </td>
+                    <td class="px-6 py-4 text-sm font-medium text-text-main">
+                        {{ item.instrument_name }}
+                    </td>
+                    <td class="px-6 py-4 text-sm text-text-muted">
+                        {{ item.brand or '-' }} {% if item.model %}/ {{ item.model }}{% endif %}
+                    </td>
+                    <td class="px-6 py-4 text-sm font-mono text-text-muted">
+                        {{ item.serial_number }}
+                    </td>
+                    <td class="px-6 py-4 text-sm">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-700 font-medium">
+                            {{ item.scope.value }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4">
+                        {% if item.status.value == 'CERT_READY' %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            CERT READY
+                        </span>
+                        {% elif item.status.value in ('CALIBRATING', 'REVIEW') %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sky-50 text-brand-primary border border-sky-200">
+                            {{ item.status.value }}
+                        </span>
+                        {% else %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
+                            {{ item.status.value }}
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4">
+                        {% if item.release_allowed %}
+                        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            ✓ RELEASE ALLOWED
+                        </span>
+                        {% elif item.status.value == 'CERT_READY' and not item.release_allowed %}
+                        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                            🔒 HELD (PO PENDING)
+                        </span>
+                        {% else %}
+                        <span class="text-xs text-text-muted">
+                            Pending Calibration
+                        </span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- Add New Instruments Card -->
+<div class="bg-surface rounded-xl shadow-sm border border-slate-200 p-6">
+    <div class="mb-5">
+        <h3 class="text-lg font-semibold text-text-main">Intake New Instruments (Serah Terima Alat)</h3>
+        <p class="text-xs text-text-muted mt-1">
+            Enter multiple customer instruments. A unique QR Tag will be auto-generated for each item upon saving.
+        </p>
+    </div>
+
+    <form method="post" action="/orders/{{ order.id }}/bast/save" id="bast-form">
+        <input type="hidden" name="items_json" id="items-json">
+
+        <div id="items-container" class="space-y-4">
+            <div class="item-row p-4 rounded-lg bg-slate-50 border border-slate-200 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                <div class="md:col-span-3">
+                    <label class="block text-xs font-semibold text-text-main mb-1">Instrument Name *</label>
+                    <input type="text" data-field="instrument_name" placeholder="e.g. Pressure Gauge" required
+                           class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-xs font-semibold text-text-main mb-1">Brand</label>
+                    <input type="text" data-field="brand" placeholder="e.g. WIKA"
+                           class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-xs font-semibold text-text-main mb-1">Model</label>
+                    <input type="text" data-field="model" placeholder="e.g. 232.50"
+                           class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-xs font-semibold text-text-main mb-1">Serial Number *</label>
+                    <input type="text" data-field="serial_number" placeholder="e.g. SN-2024-001" required
+                           class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none font-mono">
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-xs font-semibold text-text-main mb-1">Scope *</label>
+                    <select data-field="scope" required
+                            class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                        {% for s in scopes %}
+                        <option value="{{ s.value }}">{{ s.value }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="md:col-span-1 flex justify-end">
+                    <button type="button" onclick="removeRow(this)"
+                            class="w-full py-2 text-center text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg text-sm font-semibold transition-colors"
+                            title="Remove row">
+                        ✕ Remove
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-3 mt-6 pt-4 border-t border-slate-200">
+            <button type="button" onclick="addRow()"
+                    class="border border-brand-primary text-brand-primary hover:bg-brand-subtle px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors">
+                + Add Another Instrument
+            </button>
+            <button type="submit"
+                    class="bg-brand-primary hover:bg-brand-hover text-white px-6 py-2.5 rounded-lg text-sm font-semibold transition-colors shadow-sm">
+                Save All Instruments
+            </button>
+            <a href="/orders" class="text-sm text-text-muted hover:text-text-main px-4 py-2">
+                Cancel
+            </a>
+        </div>
+    </form>
+</div>
+
+<script>
+function addRow() {
+    const container = document.getElementById('items-container');
+    const firstRow = container.querySelector('.item-row');
+    const newRow = firstRow.cloneNode(true);
+    newRow.querySelectorAll('input').forEach(input => { input.value = ''; });
+    newRow.querySelectorAll('select').forEach(select => { select.selectedIndex = 0; });
+    container.appendChild(newRow);
+}
+
+function removeRow(btn) {
+    const container = document.getElementById('items-container');
+    if (container.querySelectorAll('.item-row').length > 1) {
+        btn.closest('.item-row').remove();
+    } else {
+        alert('You must have at least one instrument row.');
+    }
+}
+
+document.getElementById('bast-form').addEventListener('submit', function(e) {
+    const rows = document.querySelectorAll('.item-row');
+    const items = [];
+    let valid = true;
+
+    rows.forEach(row => {
+        const instrumentName = row.querySelector('[data-field="instrument_name"]').value.trim();
+        const serialNumber = row.querySelector('[data-field="serial_number"]').value.trim();
+        if (!instrumentName || !serialNumber) {
+            valid = false;
+            return;
+        }
+        items.push({
+            instrument_name: instrumentName,
+            brand: row.querySelector('[data-field="brand"]').value.trim(),
+            model: row.querySelector('[data-field="model"]').value.trim(),
+            serial_number: serialNumber,
+            scope: row.querySelector('[data-field="scope"]').value,
+        });
+    });
+
+    if (!valid || items.length === 0) {
+        e.preventDefault();
+        alert('Please fill in Instrument Name and Serial Number for all rows.');
+        return;
+    }
+
+    document.getElementById('items-json').value = JSON.stringify(items);
+});
+</script>
+{% endblock %}

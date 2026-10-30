@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - CalibTrack{% endblock %}
+{% block content %}
+<div class="mb-8">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+            <h2 class="text-2xl font-bold text-text-main">Operational Dashboard</h2>
+            <p class="text-text-muted text-sm mt-1">Real-time overview of laboratory orders, intake & calibration statuses</p>
+        </div>
+        <div class="flex gap-3">
+            <a href="/customers/create"
+               class="bg-white border border-slate-300 hover:bg-slate-50 text-text-main px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm">
+                + Add Customer
+            </a>
+            <a href="/orders/create"
+               class="bg-brand-primary hover:bg-brand-hover text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm">
+                + New Order
+            </a>
+        </div>
+    </div>
+</div>
+
+{% if held_items_count > 0 %}
+<div class="mb-6 p-4 rounded-xl border border-amber-200 bg-amber-50 flex items-start gap-3">
+    <span class="text-amber-600 text-xl font-bold">⚠</span>
+    <div>
+        <h4 class="text-sm font-semibold text-amber-800">Admin Hold In Effect ({{ held_items_count }} Certificate(s) Blocked)</h4>
+        <p class="text-xs text-amber-700 mt-0.5">
+            Technical calibration is complete (CERT_READY), but certificate release is strictly restricted because customer Purchase Order (PO) status is still PENDING.
+        </p>
+    </div>
+</div>
+{% endif %}
+
+<!-- Metrics Grid -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+    <!-- Total Customers -->
+    <div class="bg-surface rounded-xl p-5 border border-slate-200 shadow-sm">
+        <div class="flex items-center justify-between text-text-muted mb-2">
+            <span class="text-xs font-semibold uppercase tracking-wider">Total Customers</span>
+            <span class="text-lg">🏢</span>
+        </div>
+        <div class="text-3xl font-bold text-text-main">{{ total_customers }}</div>
+        <a href="/customers" class="text-xs text-brand-primary hover:underline mt-2 inline-block font-medium">View all customers →</a>
+    </div>
+
+    <!-- Total Orders -->
+    <div class="bg-surface rounded-xl p-5 border border-slate-200 shadow-sm">
+        <div class="flex items-center justify-between text-text-muted mb-2">
+            <span class="text-xs font-semibold uppercase tracking-wider">Active Orders</span>
+            <span class="text-lg">📋</span>
+        </div>
+        <div class="text-3xl font-bold text-text-main">{{ total_orders }}</div>
+        <a href="/orders" class="text-xs text-brand-primary hover:underline mt-2 inline-block font-medium">View all orders →</a>
+    </div>
+
+    <!-- Total Lab Instruments -->
+    <div class="bg-surface rounded-xl p-5 border border-slate-200 shadow-sm">
+        <div class="flex items-center justify-between text-text-muted mb-2">
+            <span class="text-xs font-semibold uppercase tracking-wider">Lab Instruments</span>
+            <span class="text-lg">🔬</span>
+        </div>
+        <div class="text-3xl font-bold text-brand-primary">{{ total_items }}</div>
+        <span class="text-xs text-text-muted mt-2 inline-block">Registered across all orders</span>
+    </div>
+
+    <!-- PO Pending / Admin Hold -->
+    <div class="bg-surface rounded-xl p-5 border border-slate-200 shadow-sm">
+        <div class="flex items-center justify-between text-text-muted mb-2">
+            <span class="text-xs font-semibold uppercase tracking-wider">PO Pending (Hold)</span>
+            <span class="text-lg">⏳</span>
+        </div>
+        <div class="text-3xl font-bold {% if pending_po_count > 0 %}text-amber-600{% else %}text-emerald-600{% endif %}">
+            {{ pending_po_count }}
+        </div>
+        <span class="text-xs text-text-muted mt-2 inline-block">
+            {% if pending_po_count > 0 %}Hold Admin active{% else %}All POs received{% endif %}
+        </span>
+    </div>
+</div>
+
+<!-- Recent Orders Table -->
+<div class="bg-surface rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+    <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+        <div>
+            <h3 class="text-base font-semibold text-text-main">Recent Orders & BAST Status</h3>
+            <p class="text-xs text-text-muted mt-0.5">Quick access to manage intake, quotations, and certificates</p>
+        </div>
+        <a href="/orders" class="text-xs font-semibold text-brand-primary hover:underline">View All Orders</a>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead>
+                <tr class="border-b border-slate-200 bg-slate-50 text-left">
+                    <th class="px-6 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Quotation No</th>
+                    <th class="px-6 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Customer</th>
+                    <th class="px-6 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">PO Status</th>
+                    <th class="px-6 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Service</th>
+                    <th class="px-6 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Instruments</th>
+                    <th class="px-6 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Target SLA</th>
+                    <th class="px-6 py-3 text-right text-xs font-semibold text-text-muted uppercase tracking-wider">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for order in recent_orders %}
+                <tr class="hover:bg-brand-subtle/30 transition-colors">
+                    <td class="px-6 py-4 text-sm font-medium text-text-main">
+                        {{ order.quotation_no or ('Order #' ~ order.id) }}
+                    </td>
+                    <td class="px-6 py-4 text-sm text-text-main font-medium">
+                        {{ order.customer.company_name }}
+                    </td>
+                    <td class="px-6 py-4">
+                        {% if order.po_status.value == 'PENDING' %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                            HOLD ADMIN (PO PENDING)
+                        </span>
+                        {% else %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            PO RECEIVED
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 text-sm text-text-muted">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-700">
+                            {{ order.service_type.value | replace('_', ' ') }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-sm text-text-muted">
+                        {{ order.job_items | length }} item(s)
+                    </td>
+                    <td class="px-6 py-4 text-sm text-text-muted font-mono">
+                        {{ order.target_sla_date or '-' }}
+                    </td>
+                    <td class="px-6 py-4 text-right whitespace-nowrap">
+                        <a href="/orders/{{ order.id }}/bast"
+                           class="inline-flex items-center gap-1 text-xs font-semibold text-brand-primary bg-brand-subtle hover:bg-sky-100 px-2.5 py-1.5 rounded-md transition-colors mr-2">
+                            <span>📦 BAST Intake</span>
+                        </a>
+                        <a href="/orders/{{ order.id }}/edit"
+                           class="text-xs font-semibold text-slate-600 hover:text-text-main px-2 py-1.5 rounded-md hover:bg-slate-100 transition-colors">
+                            Edit
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+                {% if not recent_orders %}
+                <tr>
+                    <td colspan="7" class="px-6 py-12 text-center text-text-muted text-sm">
+                        No orders registered yet. Start by <a href="/orders/create" class="text-brand-primary underline">creating a new order</a>.
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

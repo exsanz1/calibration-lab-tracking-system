@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit' if customer else 'Add' }} Customer - CalibTrack{% endblock %}
+{% block content %}
+<div class="mb-6">
+    <a href="/customers" class="text-text-muted hover:text-text-main text-sm">← Back to Customers</a>
+    <h2 class="text-2xl font-bold text-text-main mt-2">{{ 'Edit' if customer else 'Add New' }} Customer</h2>
+</div>
+
+<div class="bg-surface rounded-xl shadow-sm border border-slate-200 p-6 max-w-2xl">
+    <form method="post" action="/customers/save" class="space-y-4">
+        {% if customer %}
+        <input type="hidden" name="customer_id" value="{{ customer.id }}">
+        {% endif %}
+
+        <div>
+            <label class="block text-sm font-medium text-text-main mb-1">Company Name *</label>
+            <input type="text" name="company_name" value="{{ customer.company_name if customer else '' }}" required
+                   class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-text-main mb-1">PIC Name *</label>
+            <input type="text" name="pic_name" value="{{ customer.pic_name if customer else '' }}" required
+                   class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-text-main mb-1">Phone *</label>
+            <input type="text" name="phone" value="{{ customer.phone if customer else '' }}" required
+                   class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-text-main mb-1">Email</label>
+            <input type="email" name="email" value="{{ customer.email if customer else '' }}"
+                   class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-text-main mb-1">Address</label>
+            <textarea name="address" rows="3"
+                      class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">{{ customer.address if customer else '' }}</textarea>
+        </div>
+        <div class="flex gap-3 pt-2">
+            <button type="submit"
+                    class="bg-brand-primary hover:bg-brand-hover text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors">
+                {{ 'Update' if customer else 'Create' }} Customer
+            </button>
+            <a href="/customers" class="px-6 py-2 rounded-lg text-sm font-medium text-text-muted hover:bg-slate-100 transition-colors">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
