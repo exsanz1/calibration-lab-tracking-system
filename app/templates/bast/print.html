@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BAST - {{ order.bast_no or ('Order #' ~ order.id) }} - CalibTrack</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @media print {
+            body {
+                background: white !important;
+                color: black !important;
+                font-size: 11pt;
+            }
+            @page {
+                size: A4 portrait;
+                margin: 1.5cm;
+            }
+        }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen py-8 print:py-0 print:bg-white text-slate-800 font-sans">
+
+    <!-- Top Action Bar (Hidden when printing) -->
+    <div class="max-w-4xl mx-auto mb-6 px-4 flex items-center justify-between print:hidden">
+        <a href="/orders/{{ order.id }}/bast" class="text-sm text-slate-600 hover:text-slate-900 font-medium flex items-center gap-1.5">
+            ← Kembali ke Form BAST
+        </a>
+        <div class="flex items-center gap-3">
+            <button onclick="window.print()"
+                    class="bg-[#0099FF] hover:bg-[#007CE8] text-white px-5 py-2 rounded-lg text-sm font-semibold shadow-sm flex items-center gap-2 transition-colors">
+                <span>🖨</span> Cetak / Simpan PDF
+            </button>
+        </div>
+    </div>
+
+    <!-- Printable Document Sheet (A4 size look) -->
+    <div class="max-w-4xl mx-auto bg-white border border-slate-200 shadow-sm print:shadow-none print:border-none p-8 md:p-12 rounded-xl print:p-0 print:rounded-none">
+
+        <!-- Document Header -->
+        <div class="border-b-2 border-slate-800 pb-5 mb-6">
+            <div class="flex justify-between items-start">
+                <div>
+                    <h1 class="text-xl font-bold tracking-tight text-slate-900 uppercase">Laboratorium Kalibrasi & Metrologi</h1>
+                    <p class="text-xs text-slate-600 mt-0.5">Sistem Manajemen Operasional & Penelusuran Alat Standar</p>
+                    <p class="text-xs text-slate-500">Jl. Industri Metrologi No. 10, Jakarta | Telp: (021) 555-8899 | Email: lab@calibtrack.id</p>
+                </div>
+                <div class="text-right">
+                    <span class="inline-block bg-[#F0F8FF] text-[#0099FF] border border-[#0099FF] font-bold text-xs uppercase px-2.5 py-1 rounded">
+                        FORM BAST RESMI
+                    </span>
+                    <div class="text-xs text-slate-500 mt-1 font-mono">Doc: BAST-CAL-F01</div>
+                </div>
+            </div>
+            <div class="mt-4 pt-3 border-t border-slate-200 flex justify-between items-baseline">
+                <h2 class="text-lg font-bold text-slate-900 uppercase tracking-wide">
+                    Berita Acara Serah Terima Alat (BAST)
+                </h2>
+                <span class="text-sm font-semibold text-slate-700">
+                    No: <span class="font-mono text-slate-900">{{ order.bast_no or ('BAST-' ~ order.id) }}</span>
+                </span>
+            </div>
+        </div>
+
+        <!-- Meta Information Grid -->
+        <div class="grid grid-cols-2 gap-6 mb-6 p-4 rounded-lg bg-slate-50 border border-slate-200 text-xs">
+            <div>
+                <h3 class="font-bold text-slate-900 uppercase mb-2 text-[11px] tracking-wider text-slate-500 border-b border-slate-200 pb-1">
+                    Informasi Pelanggan (Customer)
+                </h3>
+                <table class="w-full">
+                    <tr class="py-1">
+                        <td class="text-slate-500 w-28 py-0.5 font-medium">Perusahaan:</td>
+                        <td class="font-bold text-slate-900 py-0.5">{{ order.customer.company_name }}</td>
+                    </tr>
+                    <tr class="py-1">
+                        <td class="text-slate-500 py-0.5 font-medium">Nama PIC:</td>
+                        <td class="text-slate-900 py-0.5">{{ order.customer.pic_name }}</td>
+                    </tr>
+                    <tr class="py-1">
+                        <td class="text-slate-500 py-0.5 font-medium">Telepon:</td>
+                        <td class="text-slate-900 py-0.5">{{ order.customer.phone }}</td>
+                    </tr>
+                    <tr class="py-1">
+                        <td class="text-slate-500 py-0.5 font-medium">Alamat:</td>
+                        <td class="text-slate-900 py-0.5">{{ order.customer.address or '-' }}</td>
+                    </tr>
+                </table>
+            </div>
+
+            <div>
+                <h3 class="font-bold text-slate-900 uppercase mb-2 text-[11px] tracking-wider text-slate-500 border-b border-slate-200 pb-1">
+                    Data Order & Administrasi
+                </h3>
+                <table class="w-full">
+                    <tr class="py-1">
+                        <td class="text-slate-500 w-28 py-0.5 font-medium">No Quotation:</td>
+                        <td class="font-mono font-bold text-slate-900 py-0.5">{{ order.quotation_no or '-' }}</td>
+                    </tr>
+                    <tr class="py-1">
+                        <td class="text-slate-500 py-0.5 font-medium">No PO Customer:</td>
+                        <td class="font-mono text-slate-900 py-0.5">{{ order.po_no or '(Pending)' }}</td>
+                    </tr>
+                    <tr class="py-1">
+                        <td class="text-slate-500 py-0.5 font-medium">Layanan:</td>
+                        <td class="font-semibold text-slate-900 py-0.5">{{ order.service_type.value | replace('_', ' ') }}</td>
+                    </tr>
+                    <tr class="py-1">
+                        <td class="text-slate-500 py-0.5 font-medium">Tanggal Terima:</td>
+                        <td class="font-mono text-slate-900 py-0.5">{{ order.received_date or today }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- Instruments Table -->
+        <div class="mb-8">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
+                Daftar Instrumen & Kondisi Serah Terima ({{ items | length }} Unit)
+            </h3>
+            <table class="w-full border-collapse border border-slate-300 text-xs">
+                <thead>
+                    <tr class="bg-slate-100 text-slate-800 text-left font-semibold">
+                        <th class="border border-slate-300 px-3 py-2 text-center w-10">No</th>
+                        <th class="border border-slate-300 px-3 py-2 w-36">QR Code Tag</th>
+                        <th class="border border-slate-300 px-3 py-2">Nama Instrumen</th>
+                        <th class="border border-slate-300 px-3 py-2">Merk / Tipe</th>
+                        <th class="border border-slate-300 px-3 py-2">No Seri (SN)</th>
+                        <th class="border border-slate-300 px-3 py-2 text-center w-20">Bidang</th>
+                        <th class="border border-slate-300 px-3 py-2 text-center w-24">Kondisi</th>
+                        <th class="border border-slate-300 px-3 py-2">Kelengkapan</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                    <tr class="border-b border-slate-300">
+                        <td class="border border-slate-300 px-3 py-2.5 text-center font-mono text-slate-600">
+                            {{ loop.index }}
+                        </td>
+                        <td class="border border-slate-300 px-3 py-2.5 font-mono font-bold text-slate-900">
+                            {{ item.qr_tag }}
+                        </td>
+                        <td class="border border-slate-300 px-3 py-2.5 font-semibold text-slate-900">
+                            {{ item.instrument_name }}
+                        </td>
+                        <td class="border border-slate-300 px-3 py-2.5 text-slate-700">
+                            {{ item.brand or '-' }} {% if item.model %}/ {{ item.model }}{% endif %}
+                        </td>
+                        <td class="border border-slate-300 px-3 py-2.5 font-mono text-slate-800">
+                            {{ item.serial_number }}
+                        </td>
+                        <td class="border border-slate-300 px-3 py-2.5 text-center font-medium text-slate-700">
+                            {{ item.scope.value }}
+                        </td>
+                        <td class="border border-slate-300 px-3 py-2.5 text-center font-semibold text-slate-800">
+                            {{ item.intake_condition }}
+                        </td>
+                        <td class="border border-slate-300 px-3 py-2.5 text-slate-700">
+                            {{ item.accessories or 'Unit Only' }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% if not items %}
+                    <tr>
+                        <td colspan="8" class="border border-slate-300 px-3 py-6 text-center text-slate-400 italic">
+                            Belum ada instrumen yang didaftarkan pada order ini.
+                        </td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Notes / Disclaimer -->
+        <div class="mb-8 p-3 rounded bg-slate-50 border border-slate-200 text-[11px] text-slate-600 space-y-1">
+            <p class="font-bold text-slate-800 uppercase tracking-wide">Ketentuan & Kebijakan Penerimaan:</p>
+            <ol class="list-decimal list-inside space-y-0.5">
+                <li>Alat dan aksesoris yang tertera di atas telah diperiksa fisik dan kelengkapannya bersama oleh kedua pihak saat serah terima.</li>
+                <li>Sesuai prosedur mutu ISO/IEC 17025, sertifikat kalibrasi dan hasil kerja hanya dapat diserahkan setelah verifikasi administrasi (PO resmi) diterima lengkap.</li>
+                <li>Segala kerusakan bawaan awal yang tertera pada kolom kondisi menjadi tanggung jawab pihak pelanggan.</li>
+            </ol>
+        </div>
+
+        <!-- Signatures Section -->
+        <div class="grid grid-cols-2 gap-12 pt-4 border-t border-slate-300 text-xs">
+            <div class="text-center">
+                <p class="font-medium text-slate-600 mb-1">Diserahkan Oleh,</p>
+                <p class="font-bold text-slate-900 mb-16">{{ order.customer.company_name }}</p>
+                <div class="w-48 mx-auto border-b border-slate-800 mb-1"></div>
+                <p class="font-semibold text-slate-800">({{ order.customer.pic_name }})</p>
+                <p class="text-[11px] text-slate-500">Pelanggan / Perwakilan</p>
+            </div>
+
+            <div class="text-center">
+                <p class="font-medium text-slate-600 mb-1">Diterima Oleh,</p>
+                <p class="font-bold text-slate-900 mb-16">Petugas Penerimaan Laboratorium</p>
+                <div class="w-48 mx-auto border-b border-slate-800 mb-1"></div>
+                <p class="font-semibold text-slate-800">(Petugas Intake Lab)</p>
+                <p class="text-[11px] text-slate-500">Tanggal: {{ order.received_date or today }}</p>
+            </div>
+        </div>
+
+    </div>
+
+</body>
+</html>

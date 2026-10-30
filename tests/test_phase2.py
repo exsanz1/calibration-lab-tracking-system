@@ -13,6 +13,7 @@ from app.database import Base, get_db
 from app.main import app
 from app.models.customer import Customer
 from app.models.job_item import JobItem, JobStatus, Scope
+from app.models.master_equipment import EquipmentStatus, MasterEquipment
 from app.models.order import InvoiceStatus, Order, POStatus, ServiceType
 
 # Isolated test database in memory
@@ -134,7 +135,7 @@ def test_customer_html_views():
 
 
 # ==========================================
-# ORDER CRUD & ADMIN HOLD TESTS
+# ORDER CRUD & ADMIN HOLD TESTS (Phase 2.5)
 # ==========================================
 
 def test_order_crud_and_admin_hold_logic():
@@ -145,6 +146,7 @@ def test_order_crud_and_admin_hold_logic():
             "company_name": "PT Industri Nusantara",
             "pic_name": "Dewi",
             "phone": "021-998877",
+            "address": "Jl. Kawasan Industri No. 4, Cikarang",
         },
     )
     cust_id = cust_res.json()["id"]
@@ -166,7 +168,7 @@ def test_order_crud_and_admin_hold_logic():
     order_id = res.json()["id"]
     assert res.json()["po_status"] == "PENDING"
 
-    # 2. Add multiple instruments via BAST API
+    # 2. Add multiple instruments via BAST API with accessories & condition
     intake_items = [
         {
             "instrument_name": "Digital Pressure Gauge",
@@ -174,6 +176,8 @@ def test_order_crud_and_admin_hold_logic():
             "model": "700G",
             "serial_number": "SN-DPG-01",
             "scope": "PRESSURE",
+            "accessories": "1/4 NPT Adapter & Case",
+            "intake_condition": "GOOD",
         },
         {
             "instrument_name": "Load Cell 50kN",
@@ -181,6 +185,8 @@ def test_order_crud_and_admin_hold_logic():
             "model": "C2",
             "serial_number": "SN-LC-02",
             "scope": "FORCE",
+            "accessories": "Unit Only",
+            "intake_condition": "SCRATCHED",
         },
     ]
     res = client.post(f"/api/orders/{order_id}/items", json=intake_items)
@@ -194,6 +200,10 @@ def test_order_crud_and_admin_hold_logic():
     year = date.today().year
     assert items[0]["qr_tag"] == f"QR-{year}-{order_id:04d}-001"
     assert items[1]["qr_tag"] == f"QR-{year}-{order_id:04d}-002"
+    assert items[0]["accessories"] == "1/4 NPT Adapter & Case"
+    assert items[0]["intake_condition"] == "GOOD"
+    assert items[1]["accessories"] == "Unit Only"
+    assert items[1]["intake_condition"] == "SCRATCHED"
 
     # Both items must have release_allowed = False because PO is PENDING
     assert items[0]["release_allowed"] is False
@@ -206,11 +216,13 @@ def test_order_crud_and_admin_hold_logic():
     )
     assert status_res.status_code == 200
     updated_item = status_res.json()
-    assert updated_item["status"] == "CERT_READY"
-    # CRITICAL: Admin Hold must BLOCK release!
+    # CRITICAL: Admin Hold moves it to HOLD_ADMIN and BLOCKs release!
+    assert updated_item["status"] == "HOLD_ADMIN"
     assert updated_item["release_allowed"] is False
 
     # 4. Now Customer PO is RECEIVED -> Admin updates Order
+    # Phase 2.5 requirement: updating po_status to RECEIVED automatically updates all child job_items.release_allowed = True
+    # and moves any item in HOLD_ADMIN to CERT_READY!
     order_update_res = client.patch(
         f"/api/orders/{order_id}",
         json={"po_status": "RECEIVED", "po_no": "PO/CUST/2026/001"},
@@ -218,18 +230,20 @@ def test_order_crud_and_admin_hold_logic():
     assert order_update_res.status_code == 200
     assert order_update_res.json()["po_status"] == "RECEIVED"
 
-    # Verify Item 1 (CERT_READY) is now automatically allowed for release!
+    # Verify Item 1 (was HOLD_ADMIN) is now moved to CERT_READY and release_allowed = True!
     item1_check = client.get(f"/api/job-items/{item1_id}").json()
+    assert item1_check["status"] == "CERT_READY"
     assert item1_check["release_allowed"] is True
 
-    # Item 2 is still RECEIVED (not CERT_READY), so its release_allowed remains False
+    # Item 2 child item also has release_allowed = True now that PO is received
     item2_check = client.get(f"/api/job-items/{item2_id}").json()
-    assert item2_check["release_allowed"] is False
+    assert item2_check["release_allowed"] is True
 
     # 5. If Order PO is reverted to PENDING -> all items must revert to release_allowed = False
     client.patch(f"/api/orders/{order_id}", json={"po_status": "PENDING"})
     item1_reverted = client.get(f"/api/job-items/{item1_id}").json()
     assert item1_reverted["release_allowed"] is False
+    assert item1_reverted["status"] == "HOLD_ADMIN"
 
 
 def test_bast_html_form_intake():
@@ -261,7 +275,7 @@ def test_bast_html_form_intake():
     assert "Berita Acara Serah Terima" in page_res.text
     assert "PT BAST Form Test" in page_res.text
 
-    # Post multiple items via BAST HTML form
+    # Post multiple items via BAST HTML form with accessories and condition
     form_items = [
         {
             "instrument_name": "Temperature Calibrator",
@@ -269,6 +283,8 @@ def test_bast_html_form_intake():
             "model": "RTC-159",
             "serial_number": "SN-TC-8899",
             "scope": "TEMP",
+            "accessories": "Power Lead & External Probe",
+            "intake_condition": "GOOD",
         },
         {
             "instrument_name": "Standard Weight 1kg",
@@ -276,6 +292,8 @@ def test_bast_html_form_intake():
             "model": "F1",
             "serial_number": "SN-SW-1000",
             "scope": "MASS",
+            "accessories": "Wooden Box & Glove",
+            "intake_condition": "GOOD",
         },
     ]
 
@@ -287,6 +305,73 @@ def test_bast_html_form_intake():
     assert save_res.status_code == 200
     assert "Temperature Calibrator" in save_res.text
     assert "Standard Weight 1kg" in save_res.text
+    assert "Power Lead" in save_res.text
+    assert "External Probe" in save_res.text
     year = date.today().year
     assert f"QR-{year}-{order_id:04d}-001" in save_res.text
     assert f"QR-{year}-{order_id:04d}-002" in save_res.text
+
+
+def test_print_bast_view():
+    # Setup Customer & Order with instruments
+    cust = client.post(
+        "/api/customers",
+        json={
+            "company_name": "PT Semen Gresik",
+            "pic_name": "Bambang",
+            "phone": "031-123456",
+            "address": "Tuban, Jawa Timur",
+        },
+    ).json()
+
+    order = client.post(
+        "/api/orders",
+        json={
+            "customer_id": cust["id"],
+            "quotation_no": "Q-2026-PRINT-01",
+            "po_no": "PO/SG/2026/077",
+            "po_status": "RECEIVED",
+            "service_type": "IN_HOUSE",
+            "bast_no": "BAST-2026-0888",
+        },
+    ).json()
+    order_id = order["id"]
+
+    # Add items
+    client.post(
+        f"/api/orders/{order_id}/items",
+        json=[
+            {
+                "instrument_name": "Micrometer 0-25mm",
+                "brand": "Mitutoyo",
+                "model": "293-240-30",
+                "serial_number": "SN-MIC-123",
+                "scope": "DIMENSION",
+                "accessories": "Fitted Case & Setting Standard",
+                "intake_condition": "GOOD",
+            }
+        ],
+    )
+
+    # Fetch print-friendly BAST view
+    res = client.get(f"/orders/{order_id}/print-bast")
+    assert res.status_code == 200
+    # Check customer details
+    assert "PT Semen Gresik" in res.text
+    assert "Bambang" in res.text
+    assert "Tuban, Jawa Timur" in res.text
+    # Check order & BAST details
+    assert "BAST-2026-0888" in res.text
+    assert "Q-2026-PRINT-01" in res.text
+    assert "PO/SG/2026/077" in res.text
+    # Check item details, accessories, condition, QR code tag
+    assert "Micrometer 0-25mm" in res.text
+    assert "Mitutoyo" in res.text
+    assert "Fitted Case" in res.text
+    assert "Setting Standard" in res.text
+    assert "GOOD" in res.text
+    year = date.today().year
+    assert f"QR-{year}-{order_id:04d}-001" in res.text
+    # Check print classes exist
+    assert "print:hidden" in res.text
+    assert "window.print()" in res.text

@@ -2,11 +2,16 @@ from __future__ import annotations
 
 import enum
 from datetime import date
+from typing import TYPE_CHECKING
 
 from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+
+if TYPE_CHECKING:
+    from app.models.customer import Customer
+    from app.models.job_item import JobItem
 
 
 class POStatus(str, enum.Enum):
@@ -39,5 +44,5 @@ class Order(Base):
     target_sla_date: Mapped[date | None] = mapped_column(default=None)
     invoice_status: Mapped[InvoiceStatus] = mapped_column(default=InvoiceStatus.UNBILLED)
 
-    customer: Mapped[Customer] = relationship(back_populates="orders")
-    job_items: Mapped[list[JobItem]] = relationship(back_populates="order")
+    customer: Mapped[Customer] = relationship("Customer", back_populates="orders")
+    job_items: Mapped[list[JobItem]] = relationship("JobItem", back_populates="order")

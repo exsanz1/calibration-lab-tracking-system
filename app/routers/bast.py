@@ -6,17 +6,15 @@ from datetime import date
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.models.job_item import JobItem, JobStatus, Scope
-from app.models.order import Order, POStatus
+from app.models.order import Order
 from app.schemas.job_item import (
     JobItemIntake,
     JobItemRead,
     JobItemStatusUpdate,
-    JobItemUpdate,
 )
 from app.services.admin_hold import sync_job_item_release
 from app.templates_config import templates
@@ -50,7 +48,12 @@ def _generate_qr_tag(order_id: int, sequence: int) -> str:
 def page_bast_form(
     order_id: int, request: Request, db: Session = Depends(get_db)
 ) -> HTMLResponse:
-    order = db.get(Order, order_id)
+    order = (
+        db.query(Order)
+        .options(joinedload(Order.customer))
+        .filter(Order.id == order_id)
+        .first()
+    )
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     existing_items = (
@@ -93,6 +96,8 @@ def page_bast_save(
             model=item_data.get("model") or None,
             serial_number=item_data["serial_number"],
             scope=Scope(item_data["scope"]),
+            accessories=item_data.get("accessories") or "Unit Only",
+            intake_condition=item_data.get("intake_condition") or "GOOD",
             status=JobStatus.RECEIVED,
         )
         sync_job_item_release(job_item, order.po_status)
@@ -101,6 +106,29 @@ def page_bast_save(
 
     db.commit()
     return RedirectResponse(url=f"/orders/{order_id}/bast", status_code=303)
+
+
+@router.get("/orders/{order_id}/print-bast", response_class=HTMLResponse)
+def page_print_bast(
+    order_id: int, request: Request, db: Session = Depends(get_db)
+) -> HTMLResponse:
+    order = (
+        db.query(Order)
+        .options(joinedload(Order.customer), joinedload(Order.job_items))
+        .filter(Order.id == order_id)
+        .first()
+    )
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    return templates.TemplateResponse(
+        request=request,
+        name="bast/print.html",
+        context={
+            "order": order,
+            "items": order.job_items,
+            "today": date.today(),
+        },
+    )
 
 
 # --- REST API Endpoints ---
@@ -147,6 +175,9 @@ def api_add_order_items(
             model=intake.model,
             serial_number=intake.serial_number,
             scope=intake.scope,
+            accessories=intake.accessories or "Unit Only",
+            intake_condition=intake.intake_condition or "GOOD",
+            master_equipment_id=intake.master_equipment_id,
             status=JobStatus.RECEIVED,
         )
         sync_job_item_release(item, order.po_status)

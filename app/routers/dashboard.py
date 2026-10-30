@@ -54,3 +54,4 @@ def page_dashboard(request: Request, db: Session = Depends(get_db)) -> HTMLRespo
             "recent_orders": recent_orders,
         },
     )
+

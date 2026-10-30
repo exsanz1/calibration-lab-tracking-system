@@ -15,6 +15,9 @@ class JobItemBase(BaseModel):
     scope: Scope
     status: JobStatus = JobStatus.RECEIVED
     assigned_tech: str | None = None
+    accessories: str | None = "Unit Only"
+    intake_condition: str = "GOOD"
+    master_equipment_id: int | None = None
     worksheet_file_path: str | None = None
     certificate_no: str | None = None
     certificate_file_path: str | None = None
@@ -33,6 +36,9 @@ class JobItemIntake(BaseModel):
     model: str | None = None
     serial_number: str
     scope: Scope
+    accessories: str | None = "Unit Only"
+    intake_condition: str = "GOOD"
+    master_equipment_id: int | None = None
 
 
 class JobItemStatusUpdate(BaseModel):
@@ -51,6 +57,9 @@ class JobItemUpdate(BaseModel):
     scope: Scope | None = None
     status: JobStatus | None = None
     assigned_tech: str | None = None
+    accessories: str | None = None
+    intake_condition: str | None = None
+    master_equipment_id: int | None = None
     worksheet_file_path: str | None = None
     certificate_no: str | None = None
     certificate_file_path: str | None = None

@@ -6,3 +6,4 @@ pydantic[email]
 jinja2>=3.1.0
 python-multipart>=0.0.9
 pytest>=8.0.0
+mypy>=1.10.0

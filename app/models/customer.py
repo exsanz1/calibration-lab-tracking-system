@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+
+if TYPE_CHECKING:
+    from app.models.order import Order
 
 
 class Customer(Base):
@@ -16,4 +21,4 @@ class Customer(Base):
     email: Mapped[str | None] = mapped_column(String(100), default=None)
     address: Mapped[str | None] = mapped_column(String(500), default=None)
 
-    orders: Mapped[list[Order]] = relationship(back_populates="customer")
+    orders: Mapped[list[Order]] = relationship("Order", back_populates="customer")

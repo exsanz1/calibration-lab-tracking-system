@@ -42,6 +42,56 @@ def seed() -> None:
 
         today = date.today()
 
+        # --- Master Equipments ---
+        m1 = MasterEquipment(
+            name="Dead Weight Tester",
+            serial_number="ME-DWT-001",
+            scope=Scope.PRESSURE,
+            last_cal_date=today - timedelta(days=200),
+            due_date=today + timedelta(days=165),
+            traceability_body="SNSU-BSN",
+            status=EquipmentStatus.ACTIVE,
+        )
+        m2 = MasterEquipment(
+            name="Universal Testing Machine 100kN",
+            serial_number="ME-UTM-001",
+            scope=Scope.FORCE,
+            last_cal_date=today - timedelta(days=330),
+            due_date=today + timedelta(days=35),
+            traceability_body="SNSU-BSN",
+            status=EquipmentStatus.ACTIVE,
+        )
+        m3 = MasterEquipment(
+            name="SPRT Reference Thermometer",
+            serial_number="ME-SPRT-001",
+            scope=Scope.TEMP,
+            last_cal_date=today - timedelta(days=350),
+            due_date=today + timedelta(days=15),
+            traceability_body="SNSU-BSN",
+            status=EquipmentStatus.ACTIVE,
+        )
+        m4 = MasterEquipment(
+            name="Standard Weight Set F1",
+            serial_number="ME-SWS-001",
+            scope=Scope.MASS,
+            last_cal_date=today - timedelta(days=400),
+            due_date=today - timedelta(days=35),
+            traceability_body="LK-BI",
+            status=EquipmentStatus.EXPIRED,
+        )
+        m5 = MasterEquipment(
+            name="Gauge Block Set Grade K",
+            serial_number="ME-GBS-001",
+            scope=Scope.DIMENSION,
+            last_cal_date=today - timedelta(days=100),
+            due_date=today + timedelta(days=265),
+            traceability_body="SNSU-BSN",
+            status=EquipmentStatus.ACTIVE,
+        )
+        master_equipments = [m1, m2, m3, m4, m5]
+        db.add_all(master_equipments)
+        db.flush()
+
         # --- Orders ---
         o1 = Order(
             customer_id=c1.id,
@@ -59,6 +109,7 @@ def seed() -> None:
             quotation_no="Q-2026-0046",
             po_status=POStatus.PENDING,
             service_type=ServiceType.ON_SITE,
+            bast_no="BAST-2026-0046",
             received_date=today - timedelta(days=2),
             target_sla_date=today + timedelta(days=12),
         )
@@ -73,7 +124,8 @@ def seed() -> None:
             target_sla_date=today + timedelta(days=4),
             invoice_status=InvoiceStatus.INVOICED,
         )
-        db.add_all([o1, o2, o3])
+        orders = [o1, o2, o3]
+        db.add_all(orders)
         db.flush()
 
         # --- Job Items ---
@@ -88,6 +140,10 @@ def seed() -> None:
                 scope=Scope.PRESSURE,
                 status=JobStatus.CALIBRATING,
                 assigned_tech="Andi Pratama",
+                accessories="Fitting Adapter 1/2 to 1/4",
+                intake_condition="GOOD",
+                master_equipment_id=m1.id,
+                release_allowed=True,
             ),
             JobItem(
                 order_id=o1.id,
@@ -98,6 +154,10 @@ def seed() -> None:
                 serial_number="PT-E-20230987",
                 scope=Scope.PRESSURE,
                 status=JobStatus.QUEUED,
+                accessories="Unit Only",
+                intake_condition="GOOD",
+                master_equipment_id=m1.id,
+                release_allowed=True,
             ),
             JobItem(
                 order_id=o2.id,
@@ -108,6 +168,10 @@ def seed() -> None:
                 serial_number="FG-S-20241122",
                 scope=Scope.FORCE,
                 status=JobStatus.RECEIVED,
+                accessories="Standard Hook & Extension Rod",
+                intake_condition="SCRATCHED_CASING",
+                master_equipment_id=m2.id,
+                release_allowed=False,
             ),
             JobItem(
                 order_id=o2.id,
@@ -118,6 +182,10 @@ def seed() -> None:
                 serial_number="TW-T-20240508",
                 scope=Scope.FORCE,
                 status=JobStatus.RECEIVED,
+                accessories="Plastic Carrying Case",
+                intake_condition="GOOD",
+                master_equipment_id=m2.id,
+                release_allowed=False,
             ),
             JobItem(
                 order_id=o3.id,
@@ -129,6 +197,9 @@ def seed() -> None:
                 scope=Scope.TEMP,
                 status=JobStatus.CERT_READY,
                 assigned_tech="Dewi Lestari",
+                accessories="Mini TC Connector Cable",
+                intake_condition="GOOD",
+                master_equipment_id=m3.id,
                 certificate_no="CERT-2026-0098",
                 release_allowed=True,
             ),
@@ -142,65 +213,19 @@ def seed() -> None:
                 scope=Scope.MASS,
                 status=JobStatus.REVIEW,
                 assigned_tech="Dewi Lestari",
+                accessories="Power Adapter & Draft Shield",
+                intake_condition="GOOD",
+                master_equipment_id=m4.id,
+                release_allowed=True,
             ),
         ]
         db.add_all(job_items)
 
-        # --- Master Equipments ---
-        master_equipments = [
-            MasterEquipment(
-                name="Dead Weight Tester",
-                serial_number="ME-DWT-001",
-                scope=Scope.PRESSURE,
-                last_cal_date=today - timedelta(days=200),
-                due_date=today + timedelta(days=165),
-                traceability_body="SNSU-BSN",
-                status=EquipmentStatus.ACTIVE,
-            ),
-            MasterEquipment(
-                name="Universal Testing Machine 100kN",
-                serial_number="ME-UTM-001",
-                scope=Scope.FORCE,
-                last_cal_date=today - timedelta(days=330),
-                due_date=today + timedelta(days=35),
-                traceability_body="SNSU-BSN",
-                status=EquipmentStatus.ACTIVE,
-            ),
-            MasterEquipment(
-                name="SPRT Reference Thermometer",
-                serial_number="ME-SPRT-001",
-                scope=Scope.TEMP,
-                last_cal_date=today - timedelta(days=350),
-                due_date=today + timedelta(days=15),
-                traceability_body="SNSU-BSN",
-                status=EquipmentStatus.ACTIVE,
-            ),
-            MasterEquipment(
-                name="Standard Weight Set F1",
-                serial_number="ME-SWS-001",
-                scope=Scope.MASS,
-                last_cal_date=today - timedelta(days=400),
-                due_date=today - timedelta(days=35),
-                traceability_body="LK-BI",
-                status=EquipmentStatus.EXPIRED,
-            ),
-            MasterEquipment(
-                name="Gauge Block Set Grade K",
-                serial_number="ME-GBS-001",
-                scope=Scope.DIMENSION,
-                last_cal_date=today - timedelta(days=100),
-                due_date=today + timedelta(days=265),
-                traceability_body="SNSU-BSN",
-                status=EquipmentStatus.ACTIVE,
-            ),
-        ]
-        db.add_all(master_equipments)
-
         db.commit()
         print(f"Seeded {len([c1, c2, c3])} customers")
-        print(f"Seeded {len([o1, o2, o3])} orders")
-        print(f"Seeded {len(job_items)} job items")
         print(f"Seeded {len(master_equipments)} master equipments")
+        print(f"Seeded {len(orders)} orders")
+        print(f"Seeded {len(job_items)} job items")
     finally:
         db.close()
 
