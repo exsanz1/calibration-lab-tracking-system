@@ -10,12 +10,16 @@ from app.routers import (
     bast_router,
     customers_router,
     dashboard_router,
+    job_items_router,
+    kanban_router,
     orders_router,
 )
+from app.services.storage import init_storage
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    init_storage()
     Base.metadata.create_all(bind=engine)
     yield
 
@@ -27,6 +31,8 @@ app.include_router(dashboard_router)
 app.include_router(customers_router)
 app.include_router(orders_router)
 app.include_router(bast_router)
+app.include_router(kanban_router)
+app.include_router(job_items_router)
 
 
 @app.get("/health")

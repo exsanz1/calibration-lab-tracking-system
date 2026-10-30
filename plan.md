@@ -56,16 +56,24 @@ The UI must strictly align with the laboratory's electric blue brand identity:
 - Implement BAST (Berita Acara Serah Terima) intake form: input multiple `job_items` under one `order` and auto-generate unique `qr_tag` IDs.
 - Implement Admin Hold Logic: if `po_status == PENDING`, flag `release_allowed = False` on certificates even if technical status reaches `CERT_READY`.
 
-### Phase 3: Kanban Job Tracking & File Archiving
-- Build Kanban Board UI grouped by `job_items.status` (`RECEIVED` -> `QUEUED` -> `CALIBRATING` -> `REVIEW` -> `CERT_READY` -> `DELIVERED`).
-- Add filter by `scope`, `assigned_tech`, and `service_type` (`IN_HOUSE` vs `ON_SITE`).
-- Add local file upload endpoint per `job_item` to attach the completed Excel Worksheet and signed PDF Certificate.
+### Phase 3: Kanban Job Tracking, Traceability & Protected File Archiving
+- Build Kanban Board UI grouped by technical `job_items.status` (`RECEIVED` -> `QUEUED` -> `CALIBRATING` -> `REVIEW` -> `CERT_READY` -> `DELIVERED`).
+  - Do NOT render `HOLD_ADMIN` as a separate column; instead, display an `amber-600` "Hold Admin (PO Pending)" badge on cards where `release_allowed == False`.
+  - Limit the `DELIVERED` column query to the latest 30 items to keep DOM rendering fast, and provide a separate searchable table view for all archived/delivered items.
+- Add filters by `scope`, `assigned_tech`, and `service_type` (`IN_HOUSE` vs `ON_SITE`).
+- In the Job Item update modal/form:
+  - Allow linking the item to an active `master_equipment_id` filtered by matching `scope` and `status == ACTIVE`. Block selection if the master equipment is `EXPIRED` or `IN_CALIBRATION`.
+- Implement secure local file storage (outside `/static/`, e.g., `storage/uploads/`):
+  - Upload endpoints per `job_item` for Excel Worksheet and signed PDF Certificate.
+  - Protected download endpoint (`GET /job-items/{id}/certificate`) that returns `HTTP 403 Forbidden` if `release_allowed == False`, and blocks status transition to `DELIVERED` if `release_allowed == False`.
+- Add a mobile-friendly quick status scan page (`GET /scan/{qr_tag}`) so technicians scanning a physical QR label land directly on that item's detail/status update view.
 
 ### Phase 4: Master Equipment Guardrail & SLA Alerts
-- Create CRUD and dashboard for `master_equipments`.
-- Implement automated check: highlight master equipments expiring in <= 60 days (`WARNING`) and <= 30 days (`CRITICAL`), and auto-mark as `EXPIRED` if past `due_date`.
-- Create a summary endpoint (`/api/alerts/daily`) returning JSON of:
-  1. `job_items` approaching `target_sla_date` (<= 3 days) or overdue.
-  2. `job_items` stuck in `CERT_READY` but blocked by `po_status == PENDING`.
-  3. `master_equipments` needing recalibration.
-  *(To be consumed by WhatsApp/Telegram webhook scheduler).*
+- Create CRUD and dashboard UI for `master_equipments`.
+- Implement real-time status evaluation helper (invoked on dashboard load and alert API calls):
+  - Auto-update `master_equipments.status` to `EXPIRED` in the database if `due_date < date.today()`.
+  - Compute UI warning badges: `<= 60 days` (`WARNING` / amber) and `<= 30 days` (`CRITICAL` / rose).
+- Create summary endpoint (`GET /api/alerts/daily`) returning strictly typed JSON of:
+  1. `sla_alerts`: `job_items` approaching `target_sla_date` (<= 3 days) or overdue (excluding `DELIVERED`).
+  2. `admin_holds`: `job_items` at `CERT_READY` blocked by `release_allowed == False` (`po_status == PENDING`).
+  3. `master_alerts`: `master_equipments` expiring within 60 days or already `EXPIRED`.

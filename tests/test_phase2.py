@@ -3,55 +3,16 @@ from __future__ import annotations
 import json
 from datetime import date
 
-import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
-
-from app.database import Base, get_db
-from app.main import app
-from app.models.customer import Customer
-from app.models.job_item import JobItem, JobStatus, Scope
-from app.models.master_equipment import EquipmentStatus, MasterEquipment
-from app.models.order import InvoiceStatus, Order, POStatus, ServiceType
-
-# Isolated test database in memory
-TEST_DB_URL = "sqlite:///:memory:"
-test_engine = create_engine(
-    TEST_DB_URL,
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
-TestingSessionLocal = sessionmaker(bind=test_engine)
 
 
-@pytest.fixture(autouse=True)
-def setup_test_db():
-    Base.metadata.create_all(bind=test_engine)
-    yield
-    Base.metadata.drop_all(bind=test_engine)
-
-
-def override_get_db():
-    db = TestingSessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-app.dependency_overrides[get_db] = override_get_db
-client = TestClient(app)
-
-
-def test_health_check():
+def test_health_check(client: TestClient) -> None:
     res = client.get("/health")
     assert res.status_code == 200
     assert res.json() == {"status": "ok"}
 
 
-def test_dashboard_page():
+def test_dashboard_page(client: TestClient) -> None:
     res = client.get("/")
     assert res.status_code == 200
     assert "Operational Dashboard" in res.text
@@ -62,7 +23,7 @@ def test_dashboard_page():
 # CUSTOMER CRUD TESTS
 # ==========================================
 
-def test_customer_api_crud():
+def test_customer_api_crud(client: TestClient) -> None:
     # 1. Create
     payload = {
         "company_name": "PT Test Lab",
@@ -106,7 +67,7 @@ def test_customer_api_crud():
     assert client.get(f"/api/customers/{cust_id}").status_code == 404
 
 
-def test_customer_html_views():
+def test_customer_html_views(client: TestClient) -> None:
     # Create via form POST
     res = client.post(
         "/customers/save",
@@ -138,7 +99,7 @@ def test_customer_html_views():
 # ORDER CRUD & ADMIN HOLD TESTS (Phase 2.5)
 # ==========================================
 
-def test_order_crud_and_admin_hold_logic():
+def test_order_crud_and_admin_hold_logic(client: TestClient) -> None:
     # Setup Customer
     cust_res = client.post(
         "/api/customers",
@@ -246,7 +207,7 @@ def test_order_crud_and_admin_hold_logic():
     assert item1_reverted["status"] == "HOLD_ADMIN"
 
 
-def test_bast_html_form_intake():
+def test_bast_html_form_intake(client: TestClient) -> None:
     # Setup Customer & Order
     cust = client.post(
         "/api/customers",
@@ -312,7 +273,7 @@ def test_bast_html_form_intake():
     assert f"QR-{year}-{order_id:04d}-002" in save_res.text
 
 
-def test_print_bast_view():
+def test_print_bast_view(client: TestClient) -> None:
     # Setup Customer & Order with instruments
     cust = client.post(
         "/api/customers",

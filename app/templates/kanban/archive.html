@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}Delivered & Archived Instruments - CalibTrack{% endblock %}
+{% block content %}
+<div class="mb-6">
+    <div class="flex items-center gap-2 text-sm text-text-muted mb-2">
+        <a href="/kanban" class="hover:text-text-main flex items-center gap-1">← Kanban Board</a>
+        <span>/</span>
+        <span class="text-text-main font-medium">Delivered Archive</span>
+    </div>
+
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+            <h2 class="text-2xl font-bold text-text-main">Delivered Instruments Archive</h2>
+            <p class="text-text-muted text-sm mt-1">
+                Permanent searchable repository of completed calibrations, issued certificates & worksheets
+            </p>
+        </div>
+        <a href="/kanban"
+           class="bg-white border border-slate-300 hover:bg-slate-50 text-text-main px-4 py-2 rounded-lg text-sm font-semibold transition-colors shadow-sm inline-flex items-center gap-2">
+            <span>📑</span> Back to Kanban Board
+        </a>
+    </div>
+
+    <!-- Search & Filter Bar -->
+    <div class="mt-6 bg-surface p-4 rounded-xl border border-slate-200 shadow-sm">
+        <form method="get" action="/kanban/archive" class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+            <div class="md:col-span-6">
+                <label class="block text-xs font-semibold text-text-main mb-1">Search Keywords</label>
+                <input type="text" name="q" value="{{ search_query }}" placeholder="Search by QR Tag, Instrument, SN, Certificate No, Customer..."
+                       class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+            </div>
+
+            <div class="md:col-span-3">
+                <label class="block text-xs font-semibold text-text-main mb-1">Scope</label>
+                <select name="scope" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                    <option value="">All Scopes</option>
+                    {% for s in scopes %}
+                    <option value="{{ s.value }}" {% if filter_scope == s.value %}selected{% endif %}>{{ s.value }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="md:col-span-3 flex items-center gap-2">
+                <button type="submit" class="flex-1 bg-brand-primary hover:bg-brand-hover text-white px-4 py-2 rounded-lg text-xs font-semibold transition-colors">
+                    Search Archive
+                </button>
+                {% if search_query or filter_scope %}
+                <a href="/kanban/archive" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors">
+                    Reset
+                </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Table Card -->
+<div class="bg-surface rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+    <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+        <h3 class="text-base font-semibold text-text-main">
+            Archive Results ({{ items | length }} instruments)
+        </h3>
+        <span class="text-xs text-text-muted">Status: DELIVERED</span>
+    </div>
+
+    <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead>
+                <tr class="border-b border-slate-200 bg-slate-50 text-left">
+                    <th class="px-4 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">QR Tag</th>
+                    <th class="px-4 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Instrument</th>
+                    <th class="px-4 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Brand / Model</th>
+                    <th class="px-4 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Serial No</th>
+                    <th class="px-4 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Scope</th>
+                    <th class="px-4 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Customer</th>
+                    <th class="px-4 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Certificate No</th>
+                    <th class="px-4 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Files & Standard</th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-text-muted uppercase tracking-wider">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for item in items %}
+                <tr class="hover:bg-brand-subtle/30 transition-colors">
+                    <td class="px-4 py-4 text-xs font-mono font-bold text-brand-primary whitespace-nowrap">
+                        <a href="/scan/{{ item.qr_tag }}" class="hover:underline">{{ item.qr_tag }}</a>
+                    </td>
+                    <td class="px-4 py-4 text-sm font-semibold text-text-main">
+                        {{ item.instrument_name }}
+                    </td>
+                    <td class="px-4 py-4 text-xs text-text-muted">
+                        {{ item.brand or '-' }} {% if item.model %}/ {{ item.model }}{% endif %}
+                    </td>
+                    <td class="px-4 py-4 text-xs font-mono text-text-muted whitespace-nowrap">
+                        {{ item.serial_number }}
+                    </td>
+                    <td class="px-4 py-4 text-xs whitespace-nowrap">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] bg-slate-100 text-slate-700 font-medium">
+                            {{ item.scope.value }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-4 text-xs text-text-main font-medium">
+                        {{ item.order.customer.company_name }}
+                    </td>
+                    <td class="px-4 py-4 text-xs font-mono font-semibold text-slate-800 whitespace-nowrap">
+                        {{ item.certificate_no or '-' }}
+                    </td>
+                    <td class="px-4 py-4 text-xs whitespace-nowrap">
+                        <div class="flex items-center gap-1.5">
+                            {% if item.certificate_file_path %}
+                            <a href="/job-items/{{ item.id }}/certificate" target="_blank"
+                               class="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold hover:underline" title="Download Official Certificate">
+                                📜 Cert PDF
+                            </a>
+                            {% endif %}
+                            {% if item.worksheet_file_path %}
+                            <a href="/job-items/{{ item.id }}/worksheet" target="_blank"
+                               class="px-2 py-0.5 rounded bg-sky-50 text-brand-primary border border-sky-200 text-[11px] font-semibold hover:underline" title="Download Excel Worksheet">
+                                📊 Sheet
+                            </a>
+                            {% endif %}
+                            {% if item.master_equipment %}
+                            <span class="text-[10px] text-slate-500 font-medium bg-slate-100 px-1.5 py-0.5 rounded" title="Master Standard: {{ item.master_equipment.name }}">
+                                ⚙ Std
+                            </span>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td class="px-4 py-4 text-right whitespace-nowrap text-xs">
+                        <a href="/scan/{{ item.qr_tag }}" class="text-brand-primary font-semibold hover:underline mr-2">
+                            View Details ↗
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+                {% if not items %}
+                <tr>
+                    <td colspan="9" class="px-6 py-12 text-center text-text-muted text-sm italic">
+                        No delivered instruments found matching your search.
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

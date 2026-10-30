@@ -33,8 +33,10 @@
             <nav class="mt-4">
                 {% set nav_items = [
                     ("/", "Dashboard", "📊"),
+                    ("/kanban", "Kanban Tracking", "📑"),
                     ("/customers", "Customers", "🏢"),
                     ("/orders", "Orders", "📋"),
+                    ("/scan", "Quick QR Scan", "📷"),
                 ] %}
                 {% for href, label, icon in nav_items %}
                 <a href="{{ href }}"
