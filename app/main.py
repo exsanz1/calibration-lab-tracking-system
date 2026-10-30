@@ -7,9 +7,11 @@ from fastapi import FastAPI
 
 from app.database import Base, engine
 from app.routers import (
+    alerts_router,
     bast_router,
     customers_router,
     dashboard_router,
+    equipments_router,
     job_items_router,
     kanban_router,
     orders_router,
@@ -33,6 +35,8 @@ app.include_router(orders_router)
 app.include_router(bast_router)
 app.include_router(kanban_router)
 app.include_router(job_items_router)
+app.include_router(equipments_router)
+app.include_router(alerts_router)
 
 
 @app.get("/health")

@@ -7,10 +7,14 @@
             <h2 class="text-2xl font-bold text-text-main">Operational Dashboard</h2>
             <p class="text-text-muted text-sm mt-1">Real-time overview of laboratory orders, intake & calibration statuses</p>
         </div>
-        <div class="flex gap-3">
+        <div class="flex flex-wrap gap-3">
             <a href="/customers/create"
                class="bg-white border border-slate-300 hover:bg-slate-50 text-text-main px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm">
                 + Add Customer
+            </a>
+            <a href="/equipments/create"
+               class="bg-white border border-slate-300 hover:bg-slate-50 text-text-main px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm">
+                + Add Master Standard
             </a>
             <a href="/orders/create"
                class="bg-brand-primary hover:bg-brand-hover text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm">
@@ -20,20 +24,103 @@
     </div>
 </div>
 
-{% if held_items_count > 0 %}
-<div class="mb-6 p-4 rounded-xl border border-amber-200 bg-amber-50 flex items-start gap-3">
-    <span class="text-amber-600 text-xl font-bold">⚠</span>
-    <div>
-        <h4 class="text-sm font-semibold text-amber-800">Admin Hold In Effect ({{ held_items_count }} Certificate(s) Blocked)</h4>
-        <p class="text-xs text-amber-700 mt-0.5">
-            Technical calibration is complete (CERT_READY), but certificate release is strictly restricted because customer Purchase Order (PO) status is still PENDING.
-        </p>
+<!-- Operational Alerts & Action Center -->
+{% if alerts.total_sla_alerts > 0 or alerts.total_admin_holds > 0 or alerts.total_master_alerts > 0 %}
+<div class="mb-8 space-y-3">
+    <!-- SLA Alert Banner if any -->
+    {% if alerts.total_sla_alerts > 0 %}
+    <div class="p-4 rounded-xl border border-rose-300 bg-rose-50 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
+        <div class="flex items-start gap-3">
+            <span class="text-rose-600 text-xl font-bold">🚨</span>
+            <div>
+                <h4 class="text-sm font-bold text-rose-900">
+                    SLA Deadline Alert ({{ alerts.total_sla_alerts }} Item(s) Due Soon or Overdue)
+                </h4>
+                <p class="text-xs text-rose-700 mt-0.5">
+                    Instruments in the calibration pipeline have reached or are approaching their SLA deadline (≤ 3 days).
+                </p>
+                <div class="flex flex-wrap gap-2 mt-2">
+                    {% for item in alerts.sla_alerts[:3] %}
+                    <span class="text-[11px] font-mono px-2 py-0.5 rounded bg-white text-rose-800 border border-rose-200">
+                        {{ item.qr_tag }}: {{ item.instrument_name }} ({% if item.is_overdue %}<span class="text-rose-600 font-bold">OVERDUE</span>{% else %}{{ item.days_remaining }}d left{% endif %})
+                    </span>
+                    {% endfor %}
+                    {% if alerts.total_sla_alerts > 3 %}
+                    <span class="text-[11px] text-rose-700 self-center">+{{ alerts.total_sla_alerts - 3 }} more</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <a href="/kanban" class="shrink-0 text-xs font-bold text-rose-700 hover:text-rose-900 px-3.5 py-2 rounded-lg bg-white border border-rose-200 hover:bg-rose-100 transition-colors">
+            View Kanban Board →
+        </a>
     </div>
+    {% endif %}
+
+    <!-- Master Standards Recalibration Alert Banner if any -->
+    {% if alerts.total_master_alerts > 0 %}
+    <div class="p-4 rounded-xl border border-amber-300 bg-amber-50 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
+        <div class="flex items-start gap-3">
+            <span class="text-amber-600 text-xl font-bold">⚖️</span>
+            <div>
+                <h4 class="text-sm font-bold text-amber-900">
+                    Master Standards Recalibration Alert ({{ alerts.total_master_alerts }} Standard(s) Expiring / Expired)
+                </h4>
+                <p class="text-xs text-amber-700 mt-0.5">
+                    ISO/IEC 17025 guardrail: master standards expiring within 60 days require recalibration to avoid blocking job items.
+                </p>
+                <div class="flex flex-wrap gap-2 mt-2">
+                    {% for eq in alerts.master_alerts[:3] %}
+                    <span class="text-[11px] px-2 py-0.5 rounded bg-white text-amber-900 border border-amber-200">
+                        <strong>{{ eq.name }}</strong> ({{ eq.serial_number }}) -
+                        {% if eq.alert_level == 'EXPIRED' %}<span class="text-rose-600 font-bold">EXPIRED</span>
+                        {% elif eq.alert_level == 'CRITICAL' %}<span class="text-rose-600 font-semibold">{{ eq.days_until_due }}d left</span>
+                        {% else %}<span class="text-amber-700 font-semibold">{{ eq.days_until_due }}d left</span>{% endif %}
+                    </span>
+                    {% endfor %}
+                    {% if alerts.total_master_alerts > 3 %}
+                    <span class="text-[11px] text-amber-700 self-center">+{{ alerts.total_master_alerts - 3 }} more</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <a href="/equipments" class="shrink-0 text-xs font-bold text-amber-800 hover:text-amber-900 px-3.5 py-2 rounded-lg bg-white border border-amber-200 hover:bg-amber-100 transition-colors">
+            Manage Standards →
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- Admin Hold Alert Banner if any -->
+    {% if alerts.total_admin_holds > 0 %}
+    <div class="p-4 rounded-xl border border-sky-300 bg-sky-50 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
+        <div class="flex items-start gap-3">
+            <span class="text-brand-primary text-xl font-bold">🔒</span>
+            <div>
+                <h4 class="text-sm font-bold text-slate-900">
+                    Admin Hold In Effect ({{ alerts.total_admin_holds }} Certificate(s) Blocked)
+                </h4>
+                <p class="text-xs text-slate-600 mt-0.5">
+                    Technical calibration is complete (CERT_READY), but customer PO status is still PENDING. Certificate download is locked until PO is marked RECEIVED.
+                </p>
+                <div class="flex flex-wrap gap-2 mt-2">
+                    {% for h in alerts.admin_holds[:3] %}
+                    <span class="text-[11px] font-mono px-2 py-0.5 rounded bg-white text-slate-800 border border-slate-200">
+                        {{ h.qr_tag }} (Order #{{ h.order_id }})
+                    </span>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        <a href="/orders" class="shrink-0 text-xs font-bold text-brand-primary hover:text-brand-hover px-3.5 py-2 rounded-lg bg-white border border-sky-200 hover:bg-sky-100 transition-colors">
+            View Orders →
+        </a>
+    </div>
+    {% endif %}
 </div>
 {% endif %}
 
 <!-- Metrics Grid -->
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
     <!-- Total Customers -->
     <div class="bg-surface rounded-xl p-5 border border-slate-200 shadow-sm">
         <div class="flex items-center justify-between text-text-muted mb-2">
@@ -41,7 +128,7 @@
             <span class="text-lg">🏢</span>
         </div>
         <div class="text-3xl font-bold text-text-main">{{ total_customers }}</div>
-        <a href="/customers" class="text-xs text-brand-primary hover:underline mt-2 inline-block font-medium">View all customers →</a>
+        <a href="/customers" class="text-xs text-brand-primary hover:underline mt-2 inline-block font-medium">View customers →</a>
     </div>
 
     <!-- Total Orders -->
@@ -51,7 +138,7 @@
             <span class="text-lg">📋</span>
         </div>
         <div class="text-3xl font-bold text-text-main">{{ total_orders }}</div>
-        <a href="/orders" class="text-xs text-brand-primary hover:underline mt-2 inline-block font-medium">View all orders →</a>
+        <a href="/orders" class="text-xs text-brand-primary hover:underline mt-2 inline-block font-medium">View orders →</a>
     </div>
 
     <!-- Total Lab Instruments -->
@@ -61,7 +148,21 @@
             <span class="text-lg">🔬</span>
         </div>
         <div class="text-3xl font-bold text-brand-primary">{{ total_items }}</div>
-        <span class="text-xs text-text-muted mt-2 inline-block">Registered across all orders</span>
+        <a href="/kanban" class="text-xs text-brand-primary hover:underline mt-2 inline-block font-medium">View Kanban →</a>
+    </div>
+
+    <!-- Master Equipment Alerts -->
+    <div class="bg-surface rounded-xl p-5 border border-slate-200 shadow-sm">
+        <div class="flex items-center justify-between text-text-muted mb-2">
+            <span class="text-xs font-semibold uppercase tracking-wider">Master Alerts</span>
+            <span class="text-lg">⚖️</span>
+        </div>
+        <div class="text-3xl font-bold {% if alerts.total_master_alerts > 0 %}text-amber-600{% else %}text-emerald-600{% endif %}">
+            {{ alerts.total_master_alerts }}
+        </div>
+        <a href="/equipments" class="text-xs text-brand-primary hover:underline mt-2 inline-block font-medium">
+            {% if alerts.total_master_alerts > 0 %}Needs attention →{% else %}All standards valid →{% endif %}
+        </a>
     </div>
 
     <!-- PO Pending / Admin Hold -->
@@ -98,62 +199,55 @@
                     <th class="px-6 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Service</th>
                     <th class="px-6 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Instruments</th>
                     <th class="px-6 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Target SLA</th>
-                    <th class="px-6 py-3 text-right text-xs font-semibold text-text-muted uppercase tracking-wider">Actions</th>
+                    <th class="px-6 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Actions</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
                 {% for order in recent_orders %}
-                <tr class="hover:bg-brand-subtle/30 transition-colors">
+                <tr class="hover:bg-slate-50 transition-colors">
                     <td class="px-6 py-4 text-sm font-medium text-text-main">
-                        {{ order.quotation_no or ('Order #' ~ order.id) }}
+                        {{ order.quotation_no or "-" }}
                     </td>
-                    <td class="px-6 py-4 text-sm text-text-main font-medium">
+                    <td class="px-6 py-4 text-sm text-text-main">
                         {{ order.customer.company_name }}
                     </td>
-                    <td class="px-6 py-4">
-                        {% if order.po_status.value == 'PENDING' %}
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-                            HOLD ADMIN (PO PENDING)
+                    <td class="px-6 py-4 text-sm">
+                        {% if order.po_status.value == "PENDING" %}
+                        <span class="inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded">
+                            <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Pending
                         </span>
                         {% else %}
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            PO RECEIVED
+                        <span class="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Received
                         </span>
                         {% endif %}
                     </td>
                     <td class="px-6 py-4 text-sm text-text-muted">
-                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-700">
-                            {{ order.service_type.value | replace('_', ' ') }}
+                        <span class="text-xs font-medium px-2 py-0.5 rounded bg-slate-100">
+                            {{ order.service_type.value }}
                         </span>
                     </td>
                     <td class="px-6 py-4 text-sm text-text-muted">
-                        {{ order.job_items | length }} item(s)
+                        {{ order.job_items|length }} item(s)
                     </td>
-                    <td class="px-6 py-4 text-sm text-text-muted font-mono">
-                        {{ order.target_sla_date or '-' }}
+                    <td class="px-6 py-4 text-sm text-text-muted">
+                        {{ order.target_sla_date.strftime('%d %b %Y') if order.target_sla_date else "-" }}
                     </td>
-                    <td class="px-6 py-4 text-right whitespace-nowrap">
-                        <a href="/orders/{{ order.id }}/bast"
-                           class="inline-flex items-center gap-1 text-xs font-semibold text-brand-primary bg-brand-subtle hover:bg-sky-100 px-2.5 py-1.5 rounded-md transition-colors mr-2">
-                            <span>📦 BAST Intake</span>
+                    <td class="px-6 py-4 text-sm">
+                        <a href="/orders/{{ order.id }}" class="text-brand-primary hover:underline text-xs font-medium">
+                            Details →
                         </a>
-                        <a href="/orders/{{ order.id }}/edit"
-                           class="text-xs font-semibold text-slate-600 hover:text-text-main px-2 py-1.5 rounded-md hover:bg-slate-100 transition-colors">
-                            Edit
-                        </a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" class="text-center py-8 text-text-muted text-sm">
+                        No orders registered yet. <a href="/orders/create" class="text-brand-primary hover:underline">Create your first order</a>.
                     </td>
                 </tr>
                 {% endfor %}
-                {% if not recent_orders %}
-                <tr>
-                    <td colspan="7" class="px-6 py-12 text-center text-text-muted text-sm">
-                        No orders registered yet. Start by <a href="/orders/create" class="text-brand-primary underline">creating a new order</a>.
-                    </td>
-                </tr>
-                {% endif %}
             </tbody>
         </table>
     </div>
 </div>
 {% endblock %}
-

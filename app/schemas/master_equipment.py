@@ -22,6 +22,16 @@ class MasterEquipmentCreate(MasterEquipmentBase):
     pass
 
 
+class MasterEquipmentUpdate(BaseModel):
+    name: str | None = None
+    serial_number: str | None = None
+    scope: Scope | None = None
+    last_cal_date: date | None = None
+    due_date: date | None = None
+    traceability_body: str | None = None
+    status: EquipmentStatus | None = None
+
+
 class MasterEquipmentRead(MasterEquipmentBase):
     model_config = ConfigDict(from_attributes=True)
 

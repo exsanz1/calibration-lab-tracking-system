@@ -8,6 +8,8 @@ from app.database import get_db
 from app.models.customer import Customer
 from app.models.job_item import JobItem, JobStatus
 from app.models.order import Order, POStatus
+from app.services.alerts import generate_daily_alerts
+from app.services.equipment_status import sync_and_evaluate_equipment_status
 from app.templates_config import templates
 
 router = APIRouter()
@@ -15,6 +17,10 @@ router = APIRouter()
 
 @router.get("/", response_class=HTMLResponse)
 def page_dashboard(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
+    # 1. Real-time synchronization of master standards status
+    sync_and_evaluate_equipment_status(db)
+
+    # 2. General statistics
     total_customers = db.query(Customer).count()
     total_orders = db.query(Order).count()
     total_items = db.query(JobItem).count()
@@ -33,6 +39,10 @@ def page_dashboard(request: Request, db: Session = Depends(get_db)) -> HTMLRespo
     held_items_count = sum(1 for item in cert_ready_items if not item.release_allowed)
     released_items_count = sum(1 for item in cert_ready_items if item.release_allowed)
 
+    # 3. Generate real-time daily operational alerts
+    daily_alerts = generate_daily_alerts(db)
+
+    # 4. Recent orders list
     recent_orders = (
         db.query(Order)
         .options(joinedload(Order.customer), joinedload(Order.job_items))
@@ -51,7 +61,7 @@ def page_dashboard(request: Request, db: Session = Depends(get_db)) -> HTMLRespo
             "pending_po_count": pending_po_count,
             "held_items_count": held_items_count,
             "released_items_count": released_items_count,
+            "alerts": daily_alerts,
             "recent_orders": recent_orders,
         },
     )
-
