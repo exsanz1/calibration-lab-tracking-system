@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% block title %}Purchase Orders Keluar (Subcount) - CalibTrack{% endblock %}
+{% block content %}
+<div class="mb-6">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+            <div class="flex items-center gap-2 mb-1">
+                <span class="text-xs font-bold uppercase tracking-wider text-brand-primary bg-brand-subtle px-2 py-0.5 rounded">
+                    Pengadaan Jasa Kalibrasi Luar
+                </span>
+            </div>
+            <h2 class="text-2xl font-bold text-text-main">PO Keluar (Subcontractor)</h2>
+            <p class="text-text-muted text-sm mt-1">
+                Penerbitan PO resmi ke vendor rekanan, pelacakan biaya modal, dan cetak dokumen template_po_keluar.docx
+            </p>
+        </div>
+        <div class="flex items-center gap-3">
+            <a href="/subcontractors"
+               class="bg-white border border-slate-300 hover:bg-slate-50 text-text-main px-4 py-2 rounded-lg text-sm font-semibold transition-colors shadow-sm inline-flex items-center gap-2">
+                <span>🏢</span> Data Subcontractor
+            </a>
+            <a href="/po-out/create"
+               class="bg-brand-primary hover:bg-brand-hover text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors shadow-sm inline-flex items-center gap-2">
+                <span>+</span> Buat PO Keluar
+            </a>
+        </div>
+    </div>
+</div>
+
+{% if success_msg %}
+<div class="mb-6 p-4 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800 text-sm font-semibold flex items-center justify-between">
+    <div class="flex items-center gap-2">
+        <span>✓</span> {{ success_msg }}
+    </div>
+    <a href="/po-out" class="text-emerald-700 hover:underline text-xs">Dismiss</a>
+</div>
+{% endif %}
+
+<!-- Search Bar -->
+<div class="bg-surface p-4 rounded-xl border border-slate-200 shadow-sm mb-6">
+    <form method="get" action="/po-out" class="flex gap-3">
+        <input type="text" name="q" value="{{ search_query }}" placeholder="Cari nomor PO Keluar, nama vendor..."
+               class="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+        <button type="submit" class="bg-brand-primary hover:bg-brand-hover text-white px-4 py-2 rounded-lg text-xs font-semibold shadow-sm transition-colors">
+            Cari
+        </button>
+        {% if search_query %}
+        <a href="/po-out" class="px-3 py-2 border border-slate-300 rounded-lg text-xs text-text-muted hover:bg-slate-50 transition-colors">
+            Reset
+        </a>
+        {% endif %}
+    </form>
+</div>
+
+<!-- Table -->
+<div class="bg-surface rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm">
+            <thead class="bg-slate-50 border-b border-slate-200 text-xs font-bold text-text-muted uppercase">
+                <tr>
+                    <th class="px-5 py-3.5">Nomor PO Keluar</th>
+                    <th class="px-5 py-3.5">Vendor Subcontractor</th>
+                    <th class="px-5 py-3.5">Customer (Atas Nama)</th>
+                    <th class="px-5 py-3.5">Tanggal PO & Delivery</th>
+                    <th class="px-5 py-3.5 text-right">Grand Total (IDR)</th>
+                    <th class="px-5 py-3.5">Status</th>
+                    <th class="px-5 py-3.5 text-right">Aksi</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for p in pos %}
+                <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="px-5 py-4 font-mono font-bold text-brand-primary">
+                        <a href="/po-out/{{ p.id }}" class="hover:underline">
+                            {{ p.po_out_no }}
+                        </a>
+                    </td>
+                    <td class="px-5 py-4">
+                        <div class="font-bold text-slate-800">{{ p.subcontractor.vendor_name }}</div>
+                        <div class="text-[11px] text-text-muted">Attn: {{ p.subcontractor.pic_name or '-' }}</div>
+                    </td>
+                    <td class="px-5 py-4 text-xs text-slate-700">
+                        <div class="font-semibold">{{ p.order.customer.company_name }}</div>
+                        <div class="text-text-muted">Order #{{ p.order.id }}</div>
+                    </td>
+                    <td class="px-5 py-4 text-xs text-slate-600">
+                        <div>📅 {{ p.po_date.strftime('%d/%m/%Y') }}</div>
+                        <div>🚚 {{ p.delivery_date.strftime('%d/%m/%Y') if p.delivery_date else '-' }}</div>
+                    </td>
+                    <td class="px-5 py-4 text-right font-mono font-bold text-slate-900">
+                        Rp {{ "{:,.0f}".format(p.grand_total).replace(",", ".") }}
+                    </td>
+                    <td class="px-5 py-4">
+                        {% if p.status.value == 'ISSUED' %}
+                        <span class="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-300 px-2 py-0.5 rounded">
+                            ISSUED
+                        </span>
+                        {% else %}
+                        <span class="inline-flex items-center gap-1 text-xs font-bold text-slate-700 bg-slate-100 border border-slate-300 px-2 py-0.5 rounded">
+                            {{ p.status.value }}
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td class="px-5 py-4 text-right">
+                        <div class="flex items-center justify-end gap-2">
+                            <a href="/po-out/{{ p.id }}/doc"
+                               class="text-xs font-semibold text-white bg-brand-primary hover:bg-brand-hover px-2.5 py-1 rounded transition-colors inline-flex items-center gap-1 shadow-sm">
+                                <span>📄</span> Unduh DOCX
+                            </a>
+                            <a href="/po-out/{{ p.id }}"
+                               class="text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded transition-colors">
+                                Rincian
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" class="text-center py-12 text-slate-400">
+                        <div class="text-3xl mb-2">📦</div>
+                        <p class="font-medium text-slate-600">Belum ada PO Keluar</p>
+                        <p class="text-xs text-slate-400 mt-1">Terbitkan PO Keluar untuk pekerjaan kalibrasi eksternal.</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

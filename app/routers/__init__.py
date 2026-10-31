@@ -8,6 +8,8 @@ from app.routers.equipments import router as equipments_router
 from app.routers.job_items import router as job_items_router
 from app.routers.kanban import router as kanban_router
 from app.routers.orders import router as orders_router
+from app.routers.po_out import router as po_out_router
+from app.routers.subcontractors import router as subcontractors_router
 
 __all__ = [
     "dashboard_router",
@@ -18,4 +20,6 @@ __all__ = [
     "job_items_router",
     "equipments_router",
     "alerts_router",
+    "subcontractors_router",
+    "po_out_router",
 ]

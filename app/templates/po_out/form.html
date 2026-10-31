@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block title %}Buat PO Keluar - CalibTrack{% endblock %}
+{% block content %}
+<div class="max-w-3xl mx-auto py-4">
+    <!-- Breadcrumb -->
+    <div class="flex items-center gap-2 text-sm text-text-muted mb-4">
+        <a href="/po-out" class="hover:text-text-main flex items-center gap-1">← PO Keluar</a>
+        <span>/</span>
+        <span class="text-text-main font-medium">Form PO Keluar</span>
+    </div>
+
+    <div class="bg-surface rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="p-6 border-b border-slate-200 bg-slate-50/50">
+            <h2 class="text-xl font-bold text-text-main">Penerbitan PO Keluar (Subcontractor)</h2>
+            <p class="text-xs text-text-muted mt-1">
+                Data resmi yang akan dicetak pada berkas word template_po_keluar.docx
+            </p>
+        </div>
+
+        <form method="post" action="/po-out" class="p-6 space-y-5">
+            <!-- Order & Subcontractor Selection -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-text-main mb-1.5">
+                        Order Terkait (Customer) *
+                    </label>
+                    <select name="order_id" required
+                            class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                        {% for o in orders %}
+                        <option value="{{ o.id }}" {% if selected_order and selected_order.id == o.id %}selected{% endif %}>
+                            #{{ o.id }} - {{ o.customer.company_name }} ({{ o.quotation_no or 'No PNW' }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-text-main mb-1.5">
+                        Vendor Subcontractor *
+                    </label>
+                    <select name="subcontractor_id" required
+                            class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                        {% for s in subcontractors %}
+                        <option value="{{ s.id }}">
+                            {{ s.vendor_name }} {% if s.pic_name %}(Attn: {{ s.pic_name }}){% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <!-- PO Number & Job Info -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-text-main mb-1.5">
+                        Nomor PO Keluar *
+                    </label>
+                    <input type="text" name="po_out_no" required
+                           value="{{ default_po_out_no }}"
+                           placeholder="e.g. 070/PO-NSI/IX/2026"
+                           class="w-full font-mono rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-text-main mb-1.5">
+                        Informasi Pekerjaan (Nama Barang Header) *
+                    </label>
+                    <input type="text" name="job_info" required
+                           value="Kalibrasi"
+                           placeholder="e.g. Kalibrasi, Re-Sertifikasi"
+                           class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                </div>
+            </div>
+
+            <!-- Dates & Quotation -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-text-main mb-1.5">
+                        Tanggal PO *
+                    </label>
+                    <input type="date" name="po_date" value="{{ today_date }}" required
+                           class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-text-main mb-1.5">
+                        Target Selesai / Delivery
+                    </label>
+                    <input type="date" name="delivery_date"
+                           class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-text-main mb-1.5">
+                        No. Penawaran Vendor
+                    </label>
+                    <input type="text" name="vendor_quotation_no" value="-"
+                           placeholder="e.g. Q-VENDOR-1029"
+                           class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                </div>
+            </div>
+
+            <!-- Onsite Fee & Special Notes -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-text-main mb-1.5">
+                        Biaya Onsite / Transport (IDR)
+                    </label>
+                    <input type="number" name="onsite_fee" value="0" min="0" step="1000"
+                           class="w-full font-mono rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                </div>
+
+                <div class="sm:col-span-2">
+                    <label class="block text-xs font-bold uppercase tracking-wider text-text-main mb-1.5">
+                        Catatan Khusus (Populates `Note : {{ "{{" }} notes {{ "}}" }}`)
+                    </label>
+                    <input type="text" name="notes"
+                           placeholder="e.g. Pengerjaan kalibrasi onsite tanggal 05 November 2026"
+                           class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                </div>
+            </div>
+
+            <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
+                <a href="/po-out"
+                   class="px-5 py-2.5 rounded-xl border border-slate-300 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
+                    Batal
+                </a>
+                <button type="submit"
+                        class="px-6 py-2.5 rounded-xl bg-brand-primary hover:bg-brand-hover text-white text-sm font-bold shadow-sm transition-colors">
+                    Terbitkan PO Keluar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

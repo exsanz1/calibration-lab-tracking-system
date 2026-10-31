@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}{% if is_edit %}Edit Subcontractor{% else %}Tambah Subcontractor{% endif %} - CalibTrack{% endblock %}
+{% block content %}
+<div class="max-w-2xl mx-auto py-4">
+    <!-- Breadcrumb -->
+    <div class="flex items-center gap-2 text-sm text-text-muted mb-4">
+        <a href="/subcontractors" class="hover:text-text-main flex items-center gap-1">← Subcontractors</a>
+        <span>/</span>
+        <span class="text-text-main font-medium">{% if is_edit %}Edit Subcontractor{% else %}Baru{% endif %}</span>
+    </div>
+
+    <div class="bg-surface rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="p-6 border-b border-slate-200 bg-slate-50/50">
+            <h2 class="text-xl font-bold text-text-main">
+                {% if is_edit %}Edit Subcontractor{% else %}Daftarkan Subcontractor Baru{% endif %}
+            </h2>
+            <p class="text-xs text-text-muted mt-1">
+                Data vendor atau laboratorium rujukan kalibrasi eksternal (Subcount)
+            </p>
+        </div>
+
+        {% if error_msg %}
+        <div class="m-6 p-4 rounded-xl border border-rose-200 bg-rose-50 text-rose-800 text-sm font-semibold flex items-center gap-2">
+            <span>⚠</span> {{ error_msg }}
+        </div>
+        {% endif %}
+
+        <form method="post" action="{% if is_edit %}/subcontractors/{{ sub.id }}/edit{% else %}/subcontractors{% endif %}" class="p-6 space-y-4">
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-text-main mb-1.5">
+                    Nama Vendor / Laboratorium *
+                </label>
+                <input type="text" name="vendor_name" required
+                       value="{% if is_edit %}{{ sub.vendor_name }}{% endif %}"
+                       placeholder="e.g. PT. Metrologi Akurasi Presisi"
+                       class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-text-main mb-1.5">
+                        PIC (Attn)
+                    </label>
+                    <input type="text" name="pic_name"
+                           value="{% if is_edit and sub.pic_name %}{{ sub.pic_name }}{% endif %}"
+                           placeholder="e.g. Bpk. Hendra Gunawan"
+                           class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-text-main mb-1.5">
+                        Telepon / WhatsApp
+                    </label>
+                    <input type="text" name="phone"
+                           value="{% if is_edit and sub.phone %}{{ sub.phone }}{% endif %}"
+                           placeholder="e.g. 021-89912345 / 0812345678"
+                           class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-text-main mb-1.5">
+                    Email
+                </label>
+                <input type="email" name="email"
+                       value="{% if is_edit and sub.email %}{{ sub.email }}{% endif %}"
+                       placeholder="e.g. info@metrologi-akurasi.co.id"
+                       class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-text-main mb-1.5">
+                    Alamat Lengkap
+                </label>
+                <textarea name="address" rows="3"
+                          placeholder="e.g. Kawasan Industri MM2100, Blok C-10, Cikarang Barat, Bekasi"
+                          class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">{% if is_edit and sub.address %}{{ sub.address }}{% endif %}</textarea>
+            </div>
+
+            <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
+                <a href="/subcontractors"
+                   class="px-5 py-2.5 rounded-xl border border-slate-300 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
+                    Batal
+                </a>
+                <button type="submit"
+                        class="px-6 py-2.5 rounded-xl bg-brand-primary hover:bg-brand-hover text-white text-sm font-bold shadow-sm transition-colors">
+                    {% if is_edit %}Simpan Perubahan{% else %}Daftarkan Vendor{% endif %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}Subcontractors - CalibTrack{% endblock %}
+{% block content %}
+<div class="mb-6">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+            <div class="flex items-center gap-2 mb-1">
+                <span class="text-xs font-bold uppercase tracking-wider text-brand-primary bg-brand-subtle px-2 py-0.5 rounded">
+                    Mitra Eksternal (Subcount)
+                </span>
+            </div>
+            <h2 class="text-2xl font-bold text-text-main">Daftar Subcontractor</h2>
+            <p class="text-text-muted text-sm mt-1">
+                Pengelolaan vendor/laboratorium rekanan untuk pekerjaan kalibrasi luar dan PO Keluar
+            </p>
+        </div>
+        <div class="flex items-center gap-3">
+            <a href="/po-out"
+               class="bg-white border border-slate-300 hover:bg-slate-50 text-text-main px-4 py-2 rounded-lg text-sm font-semibold transition-colors shadow-sm inline-flex items-center gap-2">
+                <span>📦</span> Kelola PO Keluar
+            </a>
+            <a href="/subcontractors/create"
+               class="bg-brand-primary hover:bg-brand-hover text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors shadow-sm inline-flex items-center gap-2">
+                <span>+</span> Tambah Subcontractor
+            </a>
+        </div>
+    </div>
+</div>
+
+{% if success_msg %}
+<div class="mb-6 p-4 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800 text-sm font-semibold flex items-center justify-between">
+    <div class="flex items-center gap-2">
+        <span>✓</span> {{ success_msg }}
+    </div>
+    <a href="/subcontractors" class="text-emerald-700 hover:underline text-xs">Dismiss</a>
+</div>
+{% endif %}
+
+{% if error_msg %}
+<div class="mb-6 p-4 rounded-xl border border-rose-200 bg-rose-50 text-rose-800 text-sm font-semibold flex items-center justify-between">
+    <div class="flex items-center gap-2">
+        <span>⚠</span> {{ error_msg }}
+    </div>
+    <a href="/subcontractors" class="text-rose-700 hover:underline text-xs">Dismiss</a>
+</div>
+{% endif %}
+
+<!-- Search Bar -->
+<div class="bg-surface p-4 rounded-xl border border-slate-200 shadow-sm mb-6">
+    <form method="get" action="/subcontractors" class="flex gap-3">
+        <input type="text" name="q" value="{{ search_query }}" placeholder="Cari nama vendor, PIC, telepon, email..."
+               class="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+        <button type="submit" class="bg-brand-primary hover:bg-brand-hover text-white px-4 py-2 rounded-lg text-xs font-semibold shadow-sm transition-colors">
+            Cari
+        </button>
+        {% if search_query %}
+        <a href="/subcontractors" class="px-3 py-2 border border-slate-300 rounded-lg text-xs text-text-muted hover:bg-slate-50 transition-colors">
+            Reset
+        </a>
+        {% endif %}
+    </form>
+</div>
+
+<!-- Table -->
+<div class="bg-surface rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm">
+            <thead class="bg-slate-50 border-b border-slate-200 text-xs font-bold text-text-muted uppercase">
+                <tr>
+                    <th class="px-5 py-3.5">Nama Vendor / Lab Rekanan</th>
+                    <th class="px-5 py-3.5">PIC (Attn)</th>
+                    <th class="px-5 py-3.5">Kontak (Telepon / Email)</th>
+                    <th class="px-5 py-3.5">Alamat</th>
+                    <th class="px-5 py-3.5 text-right">Aksi</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                {% for s in subcontractors %}
+                <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="px-5 py-4 font-bold text-text-main">
+                        {{ s.vendor_name }}
+                    </td>
+                    <td class="px-5 py-4 text-slate-700">
+                        {{ s.pic_name or "-" }}
+                    </td>
+                    <td class="px-5 py-4 text-xs text-text-muted">
+                        <div>📞 {{ s.phone or "-" }}</div>
+                        <div>✉ {{ s.email or "-" }}</div>
+                    </td>
+                    <td class="px-5 py-4 text-xs text-slate-600 max-w-xs truncate">
+                        {{ s.address or "-" }}
+                    </td>
+                    <td class="px-5 py-4 text-right">
+                        <div class="flex items-center justify-end gap-2">
+                            <a href="/po-out/create?subcontractor_id={{ s.id }}"
+                               class="text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded transition-colors">
+                                + PO Keluar
+                            </a>
+                            <a href="/subcontractors/{{ s.id }}/edit"
+                               class="text-xs font-semibold text-brand-primary bg-brand-subtle hover:bg-sky-100 px-2.5 py-1 rounded transition-colors">
+                                Edit
+                            </a>
+                            <form method="post" action="/subcontractors/{{ s.id }}/delete"
+                                  onsubmit="return confirm('Hapus subcontractor {{ s.vendor_name }}?');">
+                                <button type="submit"
+                                        class="text-xs font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 px-2.5 py-1 rounded transition-colors">
+                                    Hapus
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="text-center py-12 text-slate-400">
+                        <div class="text-3xl mb-2">🏢</div>
+                        <p class="font-medium text-slate-600">Belum ada data Subcontractor</p>
+                        <p class="text-xs text-slate-400 mt-1">Daftarkan vendor rekanan untuk pekerjaan subcount.</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 from datetime import date
+from typing import Any
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -17,9 +18,18 @@ from app.schemas.job_item import (
     JobItemStatusUpdate,
 )
 from app.services.admin_hold import sync_job_item_release
+from app.services.number_generator import generate_certificate_no
 from app.templates_config import templates
 
 router = APIRouter()
+
+
+def _recalc_order_financials(order: Order) -> None:
+    subtot = sum(it.unit_price * it.qty for it in order.job_items)
+    ppn = int(subtot * (order.ppn_percent / 100.0))
+    order.subtotal = subtot
+    order.ppn_amount = ppn
+    order.grand_total = subtot + ppn
 
 
 def _get_next_sequence(db: Session, order_id: int) -> int:
@@ -43,6 +53,7 @@ def _generate_qr_tag(order_id: int, sequence: int) -> str:
 
 
 # --- HTML Page Endpoints ---
+
 
 @router.get("/orders/{order_id}/bast", response_class=HTMLResponse)
 def page_bast_form(
@@ -83,27 +94,49 @@ def page_bast_save(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    items_data: list[dict[str, str]] = json.loads(items_json)
+    items_data: list[dict[str, Any]] = json.loads(items_json)
     seq = _get_next_sequence(db, order_id)
 
     for item_data in items_data:
         qr_tag = _generate_qr_tag(order_id, seq)
+        qty = int(item_data.get("qty") or 1)
+        unit_price = int(item_data.get("unit_price") or 0)
+        subcon_id = (
+            int(item_data["subcontractor_id"])
+            if item_data.get("subcontractor_id")
+            else None
+        )
+        subcon_price = int(item_data.get("subcon_price") or 0)
+
         job_item = JobItem(
             order_id=order_id,
             qr_tag=qr_tag,
             instrument_name=item_data["instrument_name"],
+            specification_desc=item_data.get("specification_desc") or None,
             brand=item_data.get("brand") or None,
             model=item_data.get("model") or None,
             serial_number=item_data["serial_number"],
             scope=Scope(item_data["scope"]),
+            qty=qty,
+            unit=item_data.get("unit") or "Unit",
+            unit_price=unit_price,
+            subcontractor_id=subcon_id,
+            subcon_price=subcon_price,
             accessories=item_data.get("accessories") or "Unit Only",
             intake_condition=item_data.get("intake_condition") or "GOOD",
             status=JobStatus.RECEIVED,
         )
         sync_job_item_release(job_item, order.po_status)
         db.add(job_item)
+        db.flush()
+        if not job_item.certificate_no:
+            job_item.certificate_no = generate_certificate_no(job_item.id)
         seq += 1
 
+    if not order.received_date:
+        order.received_date = date.today()
+
+    _recalc_order_financials(order)
     db.commit()
     return RedirectResponse(url=f"/orders/{order_id}/bast", status_code=303)
 
@@ -132,6 +165,7 @@ def page_print_bast(
 
 
 # --- REST API Endpoints ---
+
 
 @router.get("/api/orders/{order_id}/items", response_model=list[JobItemRead])
 def api_list_order_items(
@@ -171,10 +205,16 @@ def api_add_order_items(
             order_id=order_id,
             qr_tag=qr_tag,
             instrument_name=intake.instrument_name,
+            specification_desc=intake.specification_desc,
             brand=intake.brand,
             model=intake.model,
             serial_number=intake.serial_number,
             scope=intake.scope,
+            qty=intake.qty,
+            unit=intake.unit,
+            unit_price=intake.unit_price,
+            subcontractor_id=intake.subcontractor_id,
+            subcon_price=intake.subcon_price,
             accessories=intake.accessories or "Unit Only",
             intake_condition=intake.intake_condition or "GOOD",
             master_equipment_id=intake.master_equipment_id,
@@ -182,9 +222,13 @@ def api_add_order_items(
         )
         sync_job_item_release(item, order.po_status)
         db.add(item)
+        db.flush()
+        if not item.certificate_no:
+            item.certificate_no = generate_certificate_no(item.id)
         created_items.append(item)
         seq += 1
 
+    _recalc_order_financials(order)
     db.commit()
     for item in created_items:
         db.refresh(item)
@@ -218,6 +262,8 @@ def api_update_job_item_status(
         item.assigned_tech = payload.assigned_tech
     if payload.certificate_no is not None:
         item.certificate_no = payload.certificate_no
+    elif item.status in (JobStatus.CERT_READY, JobStatus.DELIVERED) and not item.certificate_no:
+        item.certificate_no = generate_certificate_no(item.id)
 
     # Admin Hold Logic strictly applied here:
     sync_job_item_release(item, order.po_status)
@@ -232,5 +278,8 @@ def api_delete_job_item(item_id: int, db: Session = Depends(get_db)) -> None:
     item = db.get(JobItem, item_id)
     if not item:
         raise HTTPException(status_code=404, detail="Job item not found")
+    order = db.get(Order, item.order_id)
     db.delete(item)
+    if order:
+        _recalc_order_financials(order)
     db.commit()

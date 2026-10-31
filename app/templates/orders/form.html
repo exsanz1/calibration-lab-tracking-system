@@ -1,97 +1,210 @@
 {% extends "base.html" %}
 {% block title %}{{ 'Edit' if order else 'New' }} Order - CalibTrack{% endblock %}
 {% block content %}
-<div class="mb-6">
-    <a href="/orders" class="text-text-muted hover:text-text-main text-sm">← Back to Orders</a>
-    <h2 class="text-2xl font-bold text-text-main mt-2">{{ 'Edit' if order else 'New' }} Order</h2>
+<div class="mb-6 max-w-4xl mx-auto">
+    <a href="{{ '/orders/' ~ order.id if order else '/orders' }}" class="text-text-muted hover:text-text-main text-sm flex items-center gap-1">
+        ← {{ 'Back to Order Detail' if order else 'Back to Orders' }}
+    </a>
+    <h2 class="text-2xl font-bold text-text-main mt-2">{{ 'Edit' if order else 'New' }} Order & 7-Stage Workflow</h2>
+    <p class="text-xs text-text-muted mt-0.5">Kelola data pelanggan, informasi penawaran, PO, ordersheet, dan penagihan</p>
 </div>
 
-<div class="bg-surface rounded-xl shadow-sm border border-slate-200 p-6 max-w-2xl">
-    <form method="post" action="/orders/save" class="space-y-4">
+<div class="bg-surface rounded-2xl shadow-sm border border-slate-200 p-8 max-w-4xl mx-auto">
+    <form method="post" action="/orders/save" class="space-y-6">
         {% if order %}
         <input type="hidden" name="order_id" value="{{ order.id }}">
         {% endif %}
 
+        <!-- Section 1: Customer & Work Scope -->
         <div>
-            <label class="block text-sm font-medium text-text-main mb-1">Customer *</label>
-            <select name="customer_id" required
-                    class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
-                <option value="">Select customer...</option>
-                {% for c in customers %}
-                <option value="{{ c.id }}" {% if order and order.customer_id == c.id %}selected{% endif %}>{{ c.company_name }}</option>
-                {% endfor %}
-            </select>
+            <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 pb-2 border-b border-slate-100 flex items-center gap-2">
+                <span>🏢</span> 1. Pelanggan & Lingkup Pekerjaan
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="md:col-span-2">
+                    <label class="block text-xs font-bold text-text-main mb-1">Customer / Klien *</label>
+                    <select name="customer_id" required
+                            class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none bg-white">
+                        <option value="">-- Pilih Customer --</option>
+                        {% for c in customers %}
+                        <option value="{{ c.id }}" {% if order and order.customer_id == c.id %}selected{% endif %}>
+                            {{ c.company_name }} (PIC: {{ c.pic_name or '-' }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-text-main mb-1">Informasi Pekerjaan (Job Info)</label>
+                    <input type="text" name="job_info" value="{{ order.job_info if order else 'Kalibrasi' }}" placeholder="Contoh: Kalibrasi, Re-Kalibrasi"
+                           class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                    <span class="text-[11px] text-text-muted">Header pekerjaan di Penawaran, Invoice, & Berita Acara</span>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-text-main mb-1">Tipe Layanan *</label>
+                    <select name="service_type" required
+                            class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none bg-white">
+                        {% for s in service_types %}
+                        <option value="{{ s.value }}" {% if order and order.service_type == s %}selected{% endif %}>
+                            {{ s.value | replace('_', ' ') }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="md:col-span-2">
+                    <label class="block text-xs font-bold text-text-main mb-1">Catatan Tambahan (Notes)</label>
+                    <textarea name="notes" rows="2" placeholder="Catatan internal atau ketentuan khusus..."
+                              class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">{{ order.notes if order and order.notes else '' }}</textarea>
+                </div>
+            </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-4">
-            <div>
-                <label class="block text-sm font-medium text-text-main mb-1">Quotation No</label>
-                <input type="text" name="quotation_no" value="{{ order.quotation_no if order and order.quotation_no else '' }}"
-                       class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-text-main mb-1">PO No</label>
-                <input type="text" name="po_no" value="{{ order.po_no if order and order.po_no else '' }}"
-                       class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
-            </div>
-        </div>
-
-        <div class="grid grid-cols-2 gap-4">
-            <div>
-                <label class="block text-sm font-medium text-text-main mb-1">PO Status</label>
-                <select name="po_status"
-                        class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
-                    {% for s in po_statuses %}
-                    <option value="{{ s.value }}" {% if order and order.po_status == s %}selected{% endif %}>{{ s.value }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-text-main mb-1">Service Type *</label>
-                <select name="service_type" required
-                        class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
-                    {% for s in service_types %}
-                    <option value="{{ s.value }}" {% if order and order.service_type == s %}selected{% endif %}>{{ s.value | replace('_', ' ') }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-        </div>
-
+        <!-- Section 2: Penawaran (Quotation) & Purchase Order (PO) -->
         <div>
-            <label class="block text-sm font-medium text-text-main mb-1">BAST No</label>
-            <input type="text" name="bast_no" value="{{ order.bast_no if order and order.bast_no else '' }}"
-                   class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+            <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 pb-2 border-b border-slate-100 flex items-center gap-2">
+                <span>📑</span> 2. Tahap Penawaran & PO Customer
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-text-main mb-1">No. Penawaran (Quotation No)</label>
+                    <input type="text" name="quotation_no" value="{{ order.quotation_no if order and order.quotation_no else '' }}" placeholder="0211/PNW-NSI/X/2026"
+                           class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm font-mono focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-text-main mb-1">Tanggal Penawaran</label>
+                    <input type="date" name="quotation_date" value="{{ order.quotation_date.isoformat() if order and order.quotation_date else '' }}"
+                           class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-text-main mb-1">No. Revisi</label>
+                    <input type="text" name="revision_no" value="{{ order.revision_no if order else '00' }}" placeholder="00"
+                           class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-text-main mb-1">Nomor PO Customer</label>
+                    <input type="text" name="po_no" value="{{ order.po_no if order and order.po_no else '' }}" placeholder="PO-2026-..."
+                           class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm font-mono focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-text-main mb-1">Status PO Customer</label>
+                    <select name="po_status"
+                            class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none bg-white">
+                        {% for s in po_statuses %}
+                        <option value="{{ s.value }}" {% if order and order.po_status == s %}selected{% endif %}>
+                            {{ s.value }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-4">
-            <div>
-                <label class="block text-sm font-medium text-text-main mb-1">Received Date</label>
-                <input type="date" name="received_date" value="{{ order.received_date if order and order.received_date else '' }}"
-                       class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-text-main mb-1">Target SLA Date</label>
-                <input type="date" name="target_sla_date" value="{{ order.target_sla_date if order and order.target_sla_date else '' }}"
-                       class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
-            </div>
-        </div>
-
+        <!-- Section 3: Ordersheet & Pengerjaan Laboratorium -->
         <div>
-            <label class="block text-sm font-medium text-text-main mb-1">Invoice Status</label>
-            <select name="invoice_status"
-                    class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
-                {% for s in invoice_statuses %}
-                <option value="{{ s.value }}" {% if order and order.invoice_status == s %}selected{% endif %}>{{ s.value }}</option>
-                {% endfor %}
-            </select>
+            <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 pb-2 border-b border-slate-100 flex items-center gap-2">
+                <span>⚙️</span> 3. Ordersheet & Pengerjaan Laboratorium
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-text-main mb-1">No. Ordersheet</label>
+                    <input type="text" name="ordersheet_no" value="{{ order.ordersheet_no if order and order.ordersheet_no else '' }}" placeholder="K.0156.1026"
+                           class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm font-mono focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-text-main mb-1">Tanggal Terima Alat</label>
+                    <input type="date" name="received_date" value="{{ order.received_date.isoformat() if order and order.received_date else '' }}"
+                           class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-text-main mb-1">Target SLA Selesai</label>
+                    <input type="date" name="target_sla_date" value="{{ order.target_sla_date.isoformat() if order and order.target_sla_date else '' }}"
+                           class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                </div>
+            </div>
         </div>
 
-        <div class="flex gap-3 pt-2">
+        <!-- Section 4: Pengembalian (TT & BA) -->
+        <div>
+            <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 pb-2 border-b border-slate-100 flex items-center gap-2">
+                <span>📥</span> 4. Pengembalian Alat (Tanda Terima & Berita Acara)
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-text-main mb-1">No. Tanda Terima (TT)</label>
+                    <input type="text" name="tt_no" value="{{ order.tt_no if order and order.tt_no else '' }}" placeholder="0285/TT-NSI/IX/26"
+                           class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm font-mono focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-text-main mb-1">Tanggal Pengembalian</label>
+                    <input type="date" name="returned_date" value="{{ order.returned_date.isoformat() if order and order.returned_date else '' }}"
+                           class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-text-main mb-1">No. BAST / Berita Acara</label>
+                    <input type="text" name="bast_no" value="{{ order.bast_no if order and order.bast_no else '' }}" placeholder="0189/BAP-NSI/IX/2026"
+                           class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm font-mono focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 5: Invoice & Penagihan -->
+        <div>
+            <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 pb-2 border-b border-slate-100 flex items-center gap-2">
+                <span>💳</span> 5. Invoice & Penagihan
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-text-main mb-1">No. Invoice</label>
+                    <input type="text" name="invoice_no" value="{{ order.invoice_no if order and order.invoice_no else '' }}" placeholder="0182/INV-NSI/IX/2026"
+                           class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm font-mono focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-text-main mb-1">Tanggal Invoice</label>
+                    <input type="date" name="invoice_date" value="{{ order.invoice_date.isoformat() if order and order.invoice_date else '' }}"
+                           class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-text-main mb-1">Terms Pembayaran</label>
+                    <input type="text" name="terms_pembayaran" value="{{ order.terms_pembayaran if order else '30 Hari' }}" placeholder="30 Hari, COD, dll"
+                           class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-text-main mb-1">Status Invoice</label>
+                    <select name="invoice_status"
+                            class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none bg-white">
+                        {% for s in invoice_statuses %}
+                        <option value="{{ s.value }}" {% if order and order.invoice_status == s %}selected{% endif %}>
+                            {{ s.value }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Submit & Actions -->
+        <div class="flex items-center gap-3 pt-4 border-t border-slate-200">
             <button type="submit"
-                    class="bg-brand-primary hover:bg-brand-hover text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors">
-                {{ 'Update' if order else 'Create' }} Order
+                    class="bg-brand-primary hover:bg-brand-hover text-white px-8 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-colors">
+                {{ 'Simpan Perubahan' if order else 'Buat Order Baru' }}
             </button>
-            <a href="/orders" class="px-6 py-2 rounded-lg text-sm font-medium text-text-muted hover:bg-slate-100 transition-colors">Cancel</a>
+            <a href="{{ '/orders/' ~ order.id if order else '/orders' }}"
+               class="px-6 py-2.5 rounded-xl text-sm font-semibold text-text-muted hover:bg-slate-100 transition-colors">
+                Batal
+            </a>
         </div>
     </form>
 </div>

@@ -15,6 +15,8 @@ from app.routers import (
     job_items_router,
     kanban_router,
     orders_router,
+    po_out_router,
+    subcontractors_router,
 )
 from app.services.storage import init_storage
 
@@ -37,6 +39,8 @@ app.include_router(kanban_router)
 app.include_router(job_items_router)
 app.include_router(equipments_router)
 app.include_router(alerts_router)
+app.include_router(subcontractors_router)
+app.include_router(po_out_router)
 
 
 @app.get("/health")

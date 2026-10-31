@@ -3,8 +3,8 @@
 {% block content %}
 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
     <div>
-        <h2 class="text-2xl font-bold text-text-main">Orders & Tracking</h2>
-        <p class="text-text-muted text-sm mt-1">Quotations, PO verification, BAST intake & administrative releases</p>
+        <h2 class="text-2xl font-bold text-text-main">Orders & Operational Tracking</h2>
+        <p class="text-text-muted text-sm mt-1">Quotations, PO verification, BAST intake, 7-stage workflow & document generation</p>
     </div>
     <a href="/orders/create"
        class="bg-brand-primary hover:bg-brand-hover text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors shadow-sm inline-flex items-center gap-1.5 self-start sm:self-auto">
@@ -22,8 +22,8 @@
                     <th class="px-6 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">PO Status</th>
                     <th class="px-6 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Service</th>
                     <th class="px-6 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Instruments</th>
-                    <th class="px-6 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Received</th>
-                    <th class="px-6 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">SLA Target</th>
+                    <th class="px-6 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Target SLA</th>
+                    <th class="px-6 py-3 text-right text-xs font-semibold text-text-muted uppercase tracking-wider">Total (IDR)</th>
                     <th class="px-6 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Invoice</th>
                     <th class="px-6 py-3 text-right text-xs font-semibold text-text-muted uppercase tracking-wider">Actions</th>
                 </tr>
@@ -32,19 +32,23 @@
                 {% for order in orders %}
                 <tr class="hover:bg-brand-subtle/30 transition-colors">
                     <td class="px-6 py-4 text-sm font-medium text-text-main whitespace-nowrap">
-                        {{ order.quotation_no or ('Order #' ~ order.id) }}
+                        <a href="/orders/{{ order.id }}" class="text-brand-primary hover:underline font-bold">
+                            {{ order.quotation_no or ('Order #' ~ order.id) }}
+                        </a>
                         {% if order.bast_no %}
-                        <div class="text-xs text-text-muted font-mono mt-0.5">{{ order.bast_no }}</div>
+                        <div class="text-[11px] text-text-muted font-mono mt-0.5">BA: {{ order.bast_no }}</div>
                         {% endif %}
                     </td>
                     <td class="px-6 py-4 text-sm text-text-main font-medium">
-                        {{ order.customer.company_name }}
-                        <div class="text-xs text-text-muted">PIC: {{ order.customer.pic_name }}</div>
+                        <a href="/orders/{{ order.id }}" class="hover:text-brand-primary">
+                            {{ order.customer.company_name }}
+                        </a>
+                        <div class="text-xs text-text-muted">Attn: {{ order.customer.pic_name or '-' }}</div>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
                         {% if order.po_status.value == 'PENDING' %}
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200" title="Admin Hold: Certificates cannot be released">
-                            HOLD ADMIN (PO PENDING)
+                            HOLD ADMIN
                         </span>
                         {% else %}
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
@@ -66,10 +70,10 @@
                         </a>
                     </td>
                     <td class="px-6 py-4 text-sm text-text-muted font-mono whitespace-nowrap">
-                        {{ order.received_date or '-' }}
-                    </td>
-                    <td class="px-6 py-4 text-sm text-text-muted font-mono whitespace-nowrap">
                         {{ order.target_sla_date or '-' }}
+                    </td>
+                    <td class="px-6 py-4 text-right font-mono text-sm font-semibold text-slate-900 whitespace-nowrap">
+                        Rp {{ "{:,.0f}".format(order.grand_total).replace(",", ".") }}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
                         {% if order.invoice_status.value == 'PAID' %}
@@ -81,16 +85,20 @@
                         {% endif %}
                     </td>
                     <td class="px-6 py-4 text-right whitespace-nowrap text-sm">
-                        <a href="/orders/{{ order.id }}/print-bast" target="_blank"
-                           class="inline-flex items-center gap-1 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 px-2 py-1.5 rounded-md transition-colors mr-2" title="Print BAST">
-                            🖨 Print
+                        <a href="/orders/{{ order.id }}"
+                           class="inline-flex items-center gap-1 text-xs font-bold text-brand-primary bg-brand-subtle hover:bg-sky-100 px-2.5 py-1.5 rounded-md transition-colors mr-1.5" title="Detail & Alur 7 Tahap">
+                            🔍 Detail
                         </a>
                         <a href="/orders/{{ order.id }}/bast"
-                           class="inline-flex items-center gap-1 text-xs font-semibold text-brand-primary bg-brand-subtle hover:bg-sky-100 px-2.5 py-1.5 rounded-md transition-colors mr-2">
+                           class="inline-flex items-center gap-1 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 px-2 py-1.5 rounded-md transition-colors mr-1.5" title="BAST Intake">
                             📦 BAST
                         </a>
+                        <a href="/orders/{{ order.id }}/print-bast" target="_blank"
+                           class="inline-flex items-center gap-1 text-xs font-semibold text-slate-600 hover:text-slate-800 px-2 py-1.5 rounded-md transition-colors mr-1.5" title="Print BAST">
+                            🖨 Print
+                        </a>
                         <a href="/orders/{{ order.id }}/edit"
-                           class="text-xs font-semibold text-slate-600 hover:text-text-main px-2 py-1.5 rounded-md hover:bg-slate-100 transition-colors mr-2">
+                           class="text-xs font-semibold text-slate-600 hover:text-text-main px-2 py-1.5 rounded-md hover:bg-slate-100 transition-colors mr-1.5">
                             Edit
                         </a>
                         <form method="post" action="/orders/{{ order.id }}/delete" class="inline"

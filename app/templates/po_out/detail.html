@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block title %}Detail PO Keluar {{ po.po_out_no }} - CalibTrack{% endblock %}
+{% block content %}
+<div class="max-w-4xl mx-auto py-4">
+    <!-- Breadcrumb -->
+    <div class="flex items-center gap-2 text-sm text-text-muted mb-4">
+        <a href="/po-out" class="hover:text-text-main flex items-center gap-1">← PO Keluar</a>
+        <span>/</span>
+        <span class="text-text-main font-medium">{{ po.po_out_no }}</span>
+    </div>
+
+    {% if success_msg %}
+    <div class="mb-6 p-4 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800 text-sm font-semibold flex items-center justify-between">
+        <div class="flex items-center gap-2">
+            <span>✓</span> {{ success_msg }}
+        </div>
+        <a href="/po-out/{{ po.id }}" class="text-emerald-700 hover:underline text-xs">Dismiss</a>
+    </div>
+    {% endif %}
+
+    <div class="bg-surface rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-6">
+        <!-- Header -->
+        <div class="p-6 border-b border-slate-200 bg-slate-50/50 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+                <span class="font-mono text-sm font-extrabold text-brand-primary bg-brand-subtle px-2.5 py-1 rounded border border-sky-200">
+                    {{ po.po_out_no }}
+                </span>
+                <h2 class="text-2xl font-bold text-text-main mt-2">Purchase Order Subcontractor</h2>
+                <p class="text-xs text-text-muted mt-0.5">
+                    Order Ref: <a href="/orders/{{ po.order_id }}" class="text-brand-primary hover:underline font-semibold">#{{ po.order_id }} ({{ po.order.customer.company_name }})</a>
+                </p>
+            </div>
+            <div class="flex items-center gap-3">
+                <a href="/po-out/{{ po.id }}/doc"
+                   class="bg-brand-primary hover:bg-brand-hover text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-colors inline-flex items-center gap-2">
+                    <span>📄</span> Unduh template_po_keluar.docx
+                </a>
+            </div>
+        </div>
+
+        <!-- Info Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 border-b border-slate-200 bg-white">
+            <div class="space-y-3 text-sm">
+                <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Vendor Rekanan</h4>
+                <div class="font-bold text-slate-900 text-base">{{ po.subcontractor.vendor_name }}</div>
+                <div class="text-slate-600 text-xs">Attn: {{ po.subcontractor.pic_name or '-' }}</div>
+                <div class="text-slate-600 text-xs">Telepon: {{ po.subcontractor.phone or '-' }}</div>
+                <div class="text-slate-600 text-xs">Alamat: {{ po.subcontractor.address or '-' }}</div>
+            </div>
+
+            <div class="space-y-3 text-sm">
+                <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Rincian Dokumen</h4>
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                    <span class="text-slate-500">Tanggal PO:</span>
+                    <span class="font-bold text-slate-800">{{ po.po_date.strftime('%d %B %Y') }}</span>
+                    <span class="text-slate-500">Target Selesai:</span>
+                    <span class="font-bold text-slate-800">{{ po.delivery_date.strftime('%d %B %Y') if po.delivery_date else '-' }}</span>
+                    <span class="text-slate-500">No. Penawaran Vendor:</span>
+                    <span class="font-mono text-slate-800">{{ po.vendor_quotation_no or '-' }}</span>
+                    <span class="text-slate-500">Header Barang:</span>
+                    <span class="font-semibold text-slate-800">{{ po.job_info }}</span>
+                    <span class="text-slate-500">Catatan (Note):</span>
+                    <span class="text-slate-700 italic">{{ po.notes or '-' }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Table of Items -->
+        <div class="p-6">
+            <h4 class="text-sm font-bold text-text-main mb-3">Daftar Instrumen Kalibrasi</h4>
+            <div class="overflow-x-auto rounded-xl border border-slate-200">
+                <table class="w-full text-left text-xs">
+                    <thead class="bg-slate-50 border-b border-slate-200 font-bold text-text-muted uppercase">
+                        <tr>
+                            <th class="px-4 py-3">No</th>
+                            <th class="px-4 py-3">Nama Instrumen & Spesifikasi</th>
+                            <th class="px-4 py-3 text-center">Qty</th>
+                            <th class="px-4 py-3">Satuan</th>
+                            <th class="px-4 py-3 text-right">Harga Modal (IDR)</th>
+                            <th class="px-4 py-3 text-right">Total (IDR)</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {% for it in po.job_items %}
+                        {% set p = it.subcon_price if it.subcon_price > 0 else it.unit_price %}
+                        <tr class="hover:bg-slate-50">
+                            <td class="px-4 py-3 font-medium">{{ loop.index }}</td>
+                            <td class="px-4 py-3">
+                                <div class="font-bold text-slate-900">{{ it.instrument_name }}</div>
+                                <div class="text-[11px] text-slate-500">{{ it.brand or '' }} {{ it.model or '' }} | SN: {{ it.serial_number }}</div>
+                            </td>
+                            <td class="px-4 py-3 text-center font-bold">{{ it.qty }}</td>
+                            <td class="px-4 py-3 text-slate-600">{{ it.unit }}</td>
+                            <td class="px-4 py-3 text-right font-mono">Rp {{ "{:,.0f}".format(p).replace(",", ".") }}</td>
+                            <td class="px-4 py-3 text-right font-mono font-bold">Rp {{ "{:,.0f}".format(p * it.qty).replace(",", ".") }}</td>
+                        </tr>
+                        {% endfor %}
+                        {% if po.onsite_fee > 0 %}
+                        <tr class="bg-slate-50/50">
+                            <td class="px-4 py-3 font-medium">-</td>
+                            <td class="px-4 py-3 font-bold text-slate-800">Biaya Onsite / Transport</td>
+                            <td class="px-4 py-3 text-center font-bold">1</td>
+                            <td class="px-4 py-3 text-slate-600">Lot</td>
+                            <td class="px-4 py-3 text-right font-mono">Rp {{ "{:,.0f}".format(po.onsite_fee).replace(",", ".") }}</td>
+                            <td class="px-4 py-3 text-right font-mono font-bold">Rp {{ "{:,.0f}".format(po.onsite_fee).replace(",", ".") }}</td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                    <tfoot class="border-t border-slate-200 bg-slate-50/70 font-semibold text-xs">
+                        <tr>
+                            <td colspan="5" class="px-4 py-2.5 text-right text-slate-600">Subtotal:</td>
+                            <td class="px-4 py-2.5 text-right font-mono font-bold text-slate-900">
+                                Rp {{ "{:,.0f}".format(po.subtotal).replace(",", ".") }}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td colspan="5" class="px-4 py-2 text-right text-slate-600">PPN (11%):</td>
+                            <td class="px-4 py-2 text-right font-mono font-bold text-slate-900">
+                                Rp {{ "{:,.0f}".format(po.ppn_amount).replace(",", ".") }}
+                            </td>
+                        </tr>
+                        <tr class="text-sm bg-sky-50 text-brand-primary">
+                            <td colspan="5" class="px-4 py-3 text-right font-bold">Grand Total:</td>
+                            <td class="px-4 py-3 text-right font-mono font-extrabold">
+                                Rp {{ "{:,.0f}".format(po.grand_total).replace(",", ".") }}
+                            </td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
