@@ -41,6 +41,7 @@ def page_kanban(
         .options(
             joinedload(JobItem.order).joinedload(Order.customer),
             joinedload(JobItem.master_equipment),
+            joinedload(JobItem.subcontractor),
         )
     )
 
@@ -118,6 +119,7 @@ def page_kanban_archive(
         .options(
             joinedload(JobItem.order).joinedload(Order.customer),
             joinedload(JobItem.master_equipment),
+            joinedload(JobItem.subcontractor),
         )
         .filter(JobItem.status == JobStatus.DELIVERED)
     )
@@ -181,6 +183,7 @@ def page_scan_detail(
         .options(
             joinedload(JobItem.order).joinedload(Order.customer),
             joinedload(JobItem.master_equipment),
+            joinedload(JobItem.subcontractor),
         )
         .filter(JobItem.qr_tag == qr_tag.strip())
         .first()
