@@ -12,6 +12,16 @@ def test_health_check(client: TestClient) -> None:
     assert res.json() == {"status": "ok"}
 
 
+def test_favicon_endpoints(client: TestClient) -> None:
+    res = client.get("/favicon.ico")
+    assert res.status_code == 200
+    assert len(res.content) > 0
+
+    res_static = client.get("/static/favicon-32x32.png")
+    assert res_static.status_code == 200
+    assert len(res_static.content) > 0
+
+
 def test_dashboard_page(client: TestClient) -> None:
     res = client.get("/")
     assert res.status_code == 200

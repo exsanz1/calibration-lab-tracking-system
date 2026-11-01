@@ -2,8 +2,11 @@ from __future__ import annotations
 
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.database import Base, engine
 from app.routers import (
@@ -41,6 +44,16 @@ app.include_router(equipments_router)
 app.include_router(alerts_router)
 app.include_router(subcontractors_router)
 app.include_router(po_out_router)
+
+# --- Static Files & Favicon ---
+STATIC_DIR = Path(__file__).resolve().parent / "static"
+if STATIC_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon() -> FileResponse:
+    return FileResponse(STATIC_DIR / "favicon.ico")
 
 
 @app.get("/health")
