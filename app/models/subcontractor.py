@@ -28,3 +28,4 @@ class Subcontractor(Base):
     purchase_orders_out: Mapped[list[PurchaseOrderOut]] = relationship(
         "PurchaseOrderOut", back_populates="subcontractor"
     )
+

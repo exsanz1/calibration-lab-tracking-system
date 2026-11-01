@@ -337,9 +337,8 @@ def generate_tt_docx(
     ret_date = order.returned_date or date.today()
     recip = (
         recipient_name
-        or order.customer.pic_name
-        or order.customer.company_name
-        or "Penerima"
+        or (order.customer.company_name if order.customer else None)
+        or "Customer"
     )
 
     context = {

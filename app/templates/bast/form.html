@@ -5,15 +5,27 @@
     <div class="flex items-center gap-2 text-sm text-text-muted mb-2">
         <a href="/orders" class="hover:text-text-main flex items-center gap-1">← Orders</a>
         <span>/</span>
+        <a href="/orders/{{ order.id }}" class="hover:text-text-main font-medium">{{ order.quotation_no or ('Order #' ~ order.id) }}</a>
+        <span>/</span>
         <span class="text-text-main font-medium">BAST Intake</span>
     </div>
+
+    {% if request.query_params.get('success') %}
+    <div class="mb-4 p-4 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800 text-sm font-semibold flex items-center justify-between">
+        <div class="flex items-center gap-2">
+            <span>✓</span> {{ request.query_params.get('success') }}
+        </div>
+        <a href="/orders/{{ order.id }}/bast" class="text-emerald-700 hover:underline text-xs">Dismiss</a>
+    </div>
+    {% endif %}
+
     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-            <h2 class="text-2xl font-bold text-text-main">Berita Acara Serah Terima (BAST)</h2>
+            <h2 class="text-2xl font-bold text-text-main">Berita Acara Serah Terima (BAST) & Intake Instrumen</h2>
             <div class="flex flex-wrap items-center gap-4 mt-2 text-sm text-text-muted">
                 <span>Quotation: <strong class="text-text-main">{{ order.quotation_no or '-' }}</strong></span>
                 <span>Customer: <strong class="text-text-main">{{ order.customer.company_name }}</strong></span>
-                <span>BAST No: <strong class="text-text-main">{{ order.bast_no or '-' }}</strong></span>
+                <span>BAST No: <strong class="text-text-main font-mono">{{ order.bast_no or '-' }}</strong></span>
                 <span>PO: 
                     {% if order.po_status.value == 'PENDING' %}
                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
@@ -30,10 +42,10 @@
         <div class="flex items-center gap-3">
             <a href="/orders/{{ order.id }}/print-bast" target="_blank"
                class="bg-white border border-slate-300 hover:bg-slate-50 text-text-main px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors shadow-sm inline-flex items-center gap-1.5">
-                <span>🖨</span> Print BAST Document
+                <span>🖨</span> Cetak Berkas BAST
             </a>
-            <a href="/orders/{{ order.id }}/edit" class="text-xs font-semibold text-brand-primary hover:underline">
-                Edit Order ↗
+            <a href="/orders/{{ order.id }}" class="text-xs font-semibold text-brand-primary hover:underline">
+                Lihat Detail Order ↗
             </a>
         </div>
     </div>
@@ -45,93 +57,128 @@
     <div>
         <h4 class="text-sm font-semibold text-amber-800">Admin Hold Rule Active</h4>
         <p class="text-xs text-amber-700 mt-0.5">
-            Customer PO is currently <strong>PENDING</strong>. Any instruments calibrated under this order will be held (Release Allowed = False) until PO status is updated to RECEIVED.
+            PO Customer saat ini berstatus <strong>PENDING</strong>. Seluruh sertifikat kalibrasi akan ditahan (Release Allowed = False) hingga PO Customer diupdate ke RECEIVED.
         </p>
     </div>
 </div>
 {% endif %}
 
+<!-- Registered Instruments Table -->
 {% if existing_items %}
-<div class="bg-surface rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-8">
-    <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+<div class="bg-surface rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-8">
+    <div class="px-6 py-4 border-b border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div>
-            <h3 class="text-base font-semibold text-text-main">Registered Instruments ({{ existing_items | length }})</h3>
-            <p class="text-xs text-text-muted mt-0.5">Tracked under unique QR tag identifiers with condition & accessories</p>
+            <h3 class="text-base font-bold text-text-main">Daftar Instrumen Terdaftar ({{ existing_items | length }} unit)</h3>
+            <p class="text-xs text-text-muted mt-0.5">Kode unik QR Tag, spesifikasi teknis, harga kalibrasi, dan status pengerjaan</p>
         </div>
-        <span class="text-xs text-text-muted font-medium">Order #{{ order.id }}</span>
+        <div class="text-xs font-mono font-semibold text-slate-700">
+            Total Nilai: Rp {{ "{:,.0f}".format(order.grand_total).replace(",", ".") }}
+        </div>
     </div>
     <div class="overflow-x-auto">
-        <table class="w-full">
-            <thead>
-                <tr class="border-b border-slate-200 bg-slate-50 text-left">
-                    <th class="px-4 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">QR Tag</th>
-                    <th class="px-4 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Instrument</th>
-                    <th class="px-4 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Brand / Model</th>
-                    <th class="px-4 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Serial Number</th>
-                    <th class="px-4 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Scope</th>
-                    <th class="px-4 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Condition</th>
-                    <th class="px-4 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Accessories</th>
-                    <th class="px-4 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Status</th>
-                    <th class="px-4 py-3 text-xs font-semibold text-text-muted uppercase tracking-wider">Release</th>
+        <table class="w-full text-left text-xs">
+            <thead class="bg-slate-50 border-b border-slate-200 font-bold text-text-muted uppercase">
+                <tr>
+                    <th class="px-4 py-3">QR Tag</th>
+                    <th class="px-4 py-3">Nama Alat & Spesifikasi</th>
+                    <th class="px-4 py-3">Brand / Model</th>
+                    <th class="px-4 py-3">Serial / No. Tag</th>
+                    <th class="px-4 py-3">Scope</th>
+                    <th class="px-4 py-3 text-center">Qty</th>
+                    <th class="px-4 py-3 text-right">Harga (IDR)</th>
+                    <th class="px-4 py-3">Pelaksana</th>
+                    <th class="px-4 py-3 text-center">Status</th>
+                    <th class="px-4 py-3 text-right">Aksi</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
                 {% for item in existing_items %}
-                <tr class="hover:bg-brand-subtle/30 transition-colors">
-                    <td class="px-4 py-4 text-sm font-mono font-bold text-brand-primary whitespace-nowrap">
+                <tr class="hover:bg-brand-subtle/20 transition-colors">
+                    <td class="px-4 py-3 font-mono font-bold text-brand-primary whitespace-nowrap">
                         {{ item.qr_tag }}
+                        {% if item.certificate_no %}
+                        <div class="text-[10px] text-slate-400 font-mono mt-0.5">{{ item.certificate_no }}</div>
+                        {% endif %}
                     </td>
-                    <td class="px-4 py-4 text-sm font-medium text-text-main">
-                        {{ item.instrument_name }}
+                    <td class="px-4 py-3">
+                        <div class="font-bold text-slate-900">{{ item.instrument_name }}</div>
+                        <div class="text-[11px] text-slate-500">
+                            {{ item.specification_desc or (item.instrument_name ~ ' ' ~ (item.brand or '') ~ ' ' ~ (item.model or '')) }}
+                        </div>
+                        <div class="text-[10px] text-slate-400 mt-0.5">
+                            Aksesoris: {{ item.accessories or 'Unit Only' }} | Kondisi: {{ item.intake_condition }}
+                        </div>
                     </td>
-                    <td class="px-4 py-4 text-sm text-text-muted">
+                    <td class="px-4 py-3 text-slate-600 whitespace-nowrap">
                         {{ item.brand or '-' }} {% if item.model %}/ {{ item.model }}{% endif %}
                     </td>
-                    <td class="px-4 py-4 text-sm font-mono text-text-muted whitespace-nowrap">
+                    <td class="px-4 py-3 font-mono text-slate-800 whitespace-nowrap font-semibold">
                         {{ item.serial_number }}
                     </td>
-                    <td class="px-4 py-4 text-sm whitespace-nowrap">
-                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-700 font-medium">
+                    <td class="px-4 py-3 whitespace-nowrap">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] bg-slate-100 text-slate-700 font-medium">
                             {{ item.scope.value }}
                         </span>
                     </td>
-                    <td class="px-4 py-4 text-sm whitespace-nowrap">
-                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {% if item.intake_condition == 'GOOD' %}bg-emerald-50 text-emerald-700{% else %}bg-amber-50 text-amber-700{% endif %}">
-                            {{ item.intake_condition }}
-                        </span>
+                    <td class="px-4 py-3 text-center font-bold text-slate-800 whitespace-nowrap">
+                        {{ item.qty }} {{ item.unit }}
                     </td>
-                    <td class="px-4 py-4 text-sm text-text-muted">
-                        {{ item.accessories or 'Unit Only' }}
+                    <td class="px-4 py-3 text-right font-mono text-slate-900 whitespace-nowrap">
+                        <div class="font-bold">Rp {{ "{:,.0f}".format(item.unit_price * item.qty).replace(",", ".") }}</div>
+                        <div class="text-[10px] text-slate-400">@ Rp {{ "{:,.0f}".format(item.unit_price).replace(",", ".") }}</div>
                     </td>
-                    <td class="px-4 py-4 whitespace-nowrap">
-                        {% if item.status.value == 'CERT_READY' %}
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            CERT READY
+                    <td class="px-4 py-3 whitespace-nowrap">
+                        {% if item.subcontractor %}
+                        <span class="font-semibold text-brand-primary">{{ item.subcontractor.vendor_name }}</span>
+                        <div class="text-[10px] text-slate-400 font-mono">Modal: Rp {{ "{:,.0f}".format(item.subcon_price).replace(",", ".") }}</div>
+                        {% else %}
+                        <span class="text-slate-500 italic">In-house</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3 text-center whitespace-nowrap">
+                        {% if item.status.value in ('CERT_READY', 'DELIVERED') %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            {{ item.status.value }}
                         </span>
                         {% elif item.status.value == 'HOLD_ADMIN' %}
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
                             HOLD ADMIN
                         </span>
-                        {% elif item.status.value in ('CALIBRATING', 'REVIEW') %}
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sky-50 text-brand-primary border border-sky-200">
-                            {{ item.status.value }}
-                        </span>
                         {% else %}
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-sky-50 text-brand-primary border border-sky-200">
                             {{ item.status.value }}
                         </span>
                         {% endif %}
                     </td>
-                    <td class="px-4 py-4 whitespace-nowrap">
-                        {% if item.release_allowed %}
-                        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            ✓ ALLOWED
-                        </span>
-                        {% else %}
-                        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-                            🔒 BLOCKED
-                        </span>
-                        {% endif %}
+                    <td class="px-4 py-3 text-right whitespace-nowrap">
+                        <button type="button"
+                                data-id="{{ item.id }}"
+                                data-name="{{ item.instrument_name }}"
+                                data-spec="{{ item.specification_desc or '' }}"
+                                data-brand="{{ item.brand or '' }}"
+                                data-model="{{ item.model or '' }}"
+                                data-serial="{{ item.serial_number }}"
+                                data-scope="{{ item.scope.value }}"
+                                data-qty="{{ item.qty }}"
+                                data-unit="{{ item.unit }}"
+                                data-unit-price="{{ item.unit_price }}"
+                                data-subcon-id="{{ item.subcontractor_id or '' }}"
+                                data-subcon-price="{{ item.subcon_price }}"
+                                data-accessories="{{ item.accessories or 'Unit Only' }}"
+                                data-condition="{{ item.intake_condition }}"
+                                data-cert="{{ item.certificate_no or '' }}"
+                                onclick="openEditModal(this)"
+                                class="inline-flex items-center text-xs font-semibold text-brand-primary hover:text-brand-hover bg-brand-subtle hover:bg-sky-100 px-2.5 py-1.5 rounded-md transition-colors mr-1">
+                            ✏️ Edit
+                        </button>
+                        <form method="post" action="/orders/{{ order.id }}/items/{{ item.id }}/delete" class="inline"
+                              onsubmit="return confirm('Hapus instrumen {{ item.instrument_name }} ({{ item.serial_number }})?')">
+                            <input type="hidden" name="redirect_to" value="/orders/{{ order.id }}/bast">
+                            <button type="submit"
+                                    class="inline-flex items-center text-xs font-semibold text-rose-600 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 px-2.5 py-1.5 rounded-md transition-colors">
+                                🗑️ Hapus
+                            </button>
+                        </form>
                     </td>
                 </tr>
                 {% endfor %}
@@ -142,11 +189,13 @@
 {% endif %}
 
 <!-- Add New Instruments Card -->
-<div class="bg-surface rounded-xl shadow-sm border border-slate-200 p-6">
+<div class="bg-surface rounded-2xl shadow-sm border border-slate-200 p-6 mb-8">
     <div class="mb-5">
-        <h3 class="text-lg font-semibold text-text-main">Intake New Instruments (Serah Terima Alat)</h3>
+        <h3 class="text-lg font-bold text-text-main flex items-center gap-2">
+            <span>➕</span> Penerimaan Instrumen Baru (Intake Multi-Item)
+        </h3>
         <p class="text-xs text-text-muted mt-1">
-            Enter multiple customer instruments. A unique QR Tag will be auto-generated for each item upon saving.
+            Masukkan satu atau beberapa instrumen yang diserahterimakan oleh pelanggan. Kode QR Tag unik dan nomor sertifikat akan otomatis digenerate.
         </p>
     </div>
 
@@ -154,76 +203,255 @@
         <input type="hidden" name="items_json" id="items-json">
 
         <div id="items-container" class="space-y-4">
-            <div class="item-row p-4 rounded-lg bg-slate-50 border border-slate-200 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-                <div class="md:col-span-2">
-                    <label class="block text-xs font-semibold text-text-main mb-1">Instrument *</label>
-                    <input type="text" data-field="instrument_name" placeholder="e.g. Pressure Gauge" required
-                           class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+            <div class="item-row p-5 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+                <!-- Baris 1: Basic Identitas -->
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
+                    <div class="md:col-span-4">
+                        <label class="block text-xs font-bold text-text-main mb-1">Nama Instrumen / Alat *</label>
+                        <input type="text" data-field="instrument_name" placeholder="e.g. Pressure Gauge" required
+                               class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-bold text-text-main mb-1">Brand / Merek</label>
+                        <input type="text" data-field="brand" placeholder="e.g. WIKA"
+                               class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-bold text-text-main mb-1">Model / Tipe</label>
+                        <input type="text" data-field="model" placeholder="e.g. 232.50"
+                               class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                    </div>
+                    <div class="md:col-span-4">
+                        <label class="block text-xs font-bold text-text-main mb-1">Serial Number / No. Tag *</label>
+                        <input type="text" data-field="serial_number" placeholder="SN-2024-001" required
+                               class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-mono focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                    </div>
                 </div>
-                <div class="md:col-span-2">
-                    <label class="block text-xs font-semibold text-text-main mb-1">Brand</label>
-                    <input type="text" data-field="brand" placeholder="e.g. WIKA"
-                           class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+
+                <!-- Baris 2: Spesifikasi & Besaran -->
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
+                    <div class="md:col-span-6">
+                        <label class="block text-xs font-bold text-text-main mb-1">Deskripsi Spesifikasi Teknis (Dicetak di Penawaran & Invoice)</label>
+                        <input type="text" data-field="specification_desc" placeholder="e.g. Dial 4 inch Range 0 - 100 bar, Conn 1/2 NPT"
+                               class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-bold text-text-main mb-1">Lingkup / Scope *</label>
+                        <select data-field="scope" required
+                                class="w-full rounded-xl border border-slate-300 bg-white px-2 py-2 text-xs focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                            {% for s in scopes %}
+                            <option value="{{ s.value }}">{{ s.value }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-bold text-text-main mb-1">Jumlah (Qty)</label>
+                        <input type="number" data-field="qty" value="1" min="1" required
+                               class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-bold focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-bold text-text-main mb-1">Satuan</label>
+                        <input type="text" data-field="unit" value="Unit" placeholder="Unit / Pcs / Lot" required
+                               class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                    </div>
                 </div>
-                <div class="md:col-span-1">
-                    <label class="block text-xs font-semibold text-text-main mb-1">Model</label>
-                    <input type="text" data-field="model" placeholder="232.50"
-                           class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+
+                <!-- Baris 3: Komersial, Subcontractor & Kondisi -->
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                    <div class="md:col-span-3">
+                        <label class="block text-xs font-bold text-text-main mb-1">Harga Kalibrasi Customer (IDR)</label>
+                        <input type="number" data-field="unit_price" value="0" min="0" step="1000"
+                               class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-mono font-semibold focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                    </div>
+                    <div class="md:col-span-4">
+                        <label class="block text-xs font-bold text-text-main mb-1">Pelaksana Pekerjaan</label>
+                        <select data-field="subcontractor_id"
+                                class="w-full rounded-xl border border-slate-300 bg-white px-2 py-2 text-xs focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                            <option value="">In-house (Laboratorium Sendiri)</option>
+                            {% for sub in subcontractors %}
+                            <option value="{{ sub.id }}">{{ sub.vendor_name }} (Subcon)</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="md:col-span-3">
+                        <label class="block text-xs font-bold text-text-main mb-1">Biaya Modal Subcon (IDR)</label>
+                        <input type="number" data-field="subcon_price" value="0" min="0" step="1000"
+                               class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-mono focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-bold text-text-main mb-1">Kondisi Fisik *</label>
+                        <select data-field="intake_condition" required
+                                class="w-full rounded-xl border border-slate-300 bg-white px-2 py-2 text-xs focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                            <option value="GOOD" selected>GOOD (Baik)</option>
+                            <option value="SCRATCHED">SCRATCHED (Baret)</option>
+                            <option value="DENTED">DENTED (Penyok)</option>
+                            <option value="DAMAGED">DAMAGED (Rusak)</option>
+                            <option value="DIRTY">DIRTY (Kotor)</option>
+                        </select>
+                    </div>
                 </div>
-                <div class="md:col-span-2">
-                    <label class="block text-xs font-semibold text-text-main mb-1">Serial Number *</label>
-                    <input type="text" data-field="serial_number" placeholder="SN-2024-001" required
-                           class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none font-mono">
-                </div>
-                <div class="md:col-span-1">
-                    <label class="block text-xs font-semibold text-text-main mb-1">Scope *</label>
-                    <select data-field="scope" required
-                            class="w-full rounded-lg border border-slate-300 bg-white px-2 py-2 text-xs focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
-                        {% for s in scopes %}
-                        <option value="{{ s.value }}">{{ s.value }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="md:col-span-1">
-                    <label class="block text-xs font-semibold text-text-main mb-1">Condition *</label>
-                    <select data-field="intake_condition" required
-                            class="w-full rounded-lg border border-slate-300 bg-white px-2 py-2 text-xs focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
-                        <option value="GOOD" selected>GOOD</option>
-                        <option value="SCRATCHED">SCRATCHED</option>
-                        <option value="DENTED">DENTED</option>
-                        <option value="DAMAGED">DAMAGED</option>
-                        <option value="DIRTY">DIRTY</option>
-                    </select>
-                </div>
-                <div class="md:col-span-2">
-                    <label class="block text-xs font-semibold text-text-main mb-1">Accessories</label>
-                    <input type="text" data-field="accessories" value="Unit Only" placeholder="Unit Only"
-                           class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
-                </div>
-                <div class="md:col-span-1 flex justify-end">
-                    <button type="button" onclick="removeRow(this)"
-                            class="w-full py-2 text-center text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg text-xs font-semibold transition-colors"
-                            title="Remove row">
-                        ✕ Remove
-                    </button>
+
+                <!-- Baris 4: Aksesoris & Hapus Baris -->
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end pt-1">
+                    <div class="md:col-span-10">
+                        <label class="block text-xs font-bold text-text-main mb-1">Aksesoris / Kelengkapan Bawaan</label>
+                        <input type="text" data-field="accessories" value="Unit Only" placeholder="e.g. Unit Only, Box, Kabel Power, Adaptor"
+                               class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                    </div>
+                    <div class="md:col-span-2 flex justify-end">
+                        <button type="button" onclick="removeRow(this)"
+                                class="w-full py-2 text-center text-rose-600 hover:text-rose-800 hover:bg-rose-100 rounded-xl text-xs font-bold transition-colors bg-rose-50 border border-rose-200"
+                                title="Hapus baris instrumen ini">
+                            ✕ Hapus Baris
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
 
         <div class="flex items-center gap-3 mt-6 pt-4 border-t border-slate-200">
             <button type="button" onclick="addRow()"
-                    class="border border-brand-primary text-brand-primary hover:bg-brand-subtle px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors">
-                + Add Another Instrument
+                    class="border-2 border-brand-primary text-brand-primary hover:bg-brand-subtle px-5 py-2.5 rounded-xl text-sm font-bold transition-colors">
+                + Tambah Baris Instrumen
             </button>
             <button type="submit"
-                    class="bg-brand-primary hover:bg-brand-hover text-white px-6 py-2.5 rounded-lg text-sm font-semibold transition-colors shadow-sm">
-                Save All Instruments
+                    class="bg-brand-primary hover:bg-brand-hover text-white px-7 py-2.5 rounded-xl text-sm font-bold transition-colors shadow-sm">
+                Simpan Seluruh Instrumen
             </button>
-            <a href="/orders" class="text-sm text-text-muted hover:text-text-main px-4 py-2">
-                Cancel
+            <a href="/orders/{{ order.id }}" class="text-sm font-semibold text-text-muted hover:text-text-main px-4 py-2">
+                Batal
             </a>
         </div>
     </form>
+</div>
+
+<!-- Edit Item Modal -->
+<div id="edit-item-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-surface rounded-2xl border border-slate-200 shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+        <div class="p-6 border-b border-slate-200 flex items-center justify-between bg-slate-50/50">
+            <h3 class="text-lg font-bold text-text-main flex items-center gap-2">
+                <span>✏️</span> Edit Data Instrumen Kalibrasi
+            </h3>
+            <button type="button" onclick="closeEditModal()" class="text-slate-400 hover:text-slate-600 text-lg font-bold">
+                ✕
+            </button>
+        </div>
+
+        <form method="post" id="edit-item-form" class="p-6 space-y-4">
+            <input type="hidden" name="redirect_to" value="/orders/{{ order.id }}/bast">
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-text-main mb-1">Nama Instrumen *</label>
+                    <input type="text" name="instrument_name" id="edit_instrument_name" required
+                           class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-text-main mb-1">Serial Number / No. Tag *</label>
+                    <input type="text" name="serial_number" id="edit_serial_number" required
+                           class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm font-mono focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-text-main mb-1">Deskripsi Spesifikasi Teknis</label>
+                <input type="text" name="specification_desc" id="edit_specification_desc"
+                       class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                <span class="text-[11px] text-text-muted">Ditampilkan pada Surat Penawaran, Berita Acara, dan Invoice</span>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-text-main mb-1">Brand / Merek</label>
+                    <input type="text" name="brand" id="edit_brand"
+                           class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-text-main mb-1">Model / Tipe</label>
+                    <input type="text" name="model" id="edit_model"
+                           class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-text-main mb-1">Lingkup / Scope *</label>
+                    <select name="scope" id="edit_scope" required
+                            class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none bg-white">
+                        {% for s in scopes %}
+                        <option value="{{ s.value }}">{{ s.value }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-text-main mb-1">Qty</label>
+                    <input type="number" name="qty" id="edit_qty" min="1" required
+                           class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm font-bold focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-text-main mb-1">Satuan</label>
+                    <input type="text" name="unit" id="edit_unit" required
+                           class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-text-main mb-1">Harga Kalibrasi (IDR)</label>
+                    <input type="number" name="unit_price" id="edit_unit_price" min="0" step="1000"
+                           class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm font-mono focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-text-main mb-1">Modal Subcon (IDR)</label>
+                    <input type="number" name="subcon_price" id="edit_subcon_price" min="0" step="1000"
+                           class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm font-mono focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-text-main mb-1">Pelaksana Pekerjaan</label>
+                    <select name="subcontractor_id" id="edit_subcontractor_id"
+                            class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none bg-white">
+                        <option value="">In-house (Internal NSI)</option>
+                        {% for sub in subcontractors %}
+                        <option value="{{ sub.id }}">{{ sub.vendor_name }} (Subcon)</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-text-main mb-1">Kondisi Fisik</label>
+                    <select name="intake_condition" id="edit_intake_condition"
+                            class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none bg-white">
+                        <option value="GOOD">GOOD (Baik)</option>
+                        <option value="SCRATCHED">SCRATCHED (Baret)</option>
+                        <option value="DENTED">DENTED (Penyok)</option>
+                        <option value="DAMAGED">DAMAGED (Rusak)</option>
+                        <option value="DIRTY">DIRTY (Kotor)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-text-main mb-1">No. Sertifikat</label>
+                    <input type="text" name="certificate_no" id="edit_certificate_no" placeholder="NSI.0001.1026"
+                           class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm font-mono focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-text-main mb-1">Aksesoris / Kelengkapan Bawaan</label>
+                <input type="text" name="accessories" id="edit_accessories"
+                       class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+            </div>
+
+            <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
+                <button type="button" onclick="closeEditModal()"
+                        class="px-5 py-2 rounded-xl text-sm font-semibold text-text-muted hover:bg-slate-100 transition-colors">
+                    Batal
+                </button>
+                <button type="submit"
+                        class="px-6 py-2 rounded-xl bg-brand-primary hover:bg-brand-hover text-white text-sm font-bold shadow-sm transition-colors">
+                    Simpan Perubahan
+                </button>
+            </div>
+        </form>
+    </div>
 </div>
 
 <script>
@@ -231,20 +459,33 @@ function addRow() {
     const container = document.getElementById('items-container');
     const firstRow = container.querySelector('.item-row');
     const newRow = firstRow.cloneNode(true);
+    
     newRow.querySelectorAll('input').forEach(input => {
-        if (input.getAttribute('data-field') === 'accessories') {
+        const field = input.getAttribute('data-field');
+        if (field === 'accessories') {
             input.value = 'Unit Only';
+        } else if (field === 'qty') {
+            input.value = '1';
+        } else if (field === 'unit') {
+            input.value = 'Unit';
+        } else if (field === 'unit_price' || field === 'subcon_price') {
+            input.value = '0';
         } else {
             input.value = '';
         }
     });
+
     newRow.querySelectorAll('select').forEach(select => {
-        if (select.getAttribute('data-field') === 'intake_condition') {
+        const field = select.getAttribute('data-field');
+        if (field === 'intake_condition') {
             select.value = 'GOOD';
+        } else if (field === 'subcontractor_id') {
+            select.value = '';
         } else {
             select.selectedIndex = 0;
         }
     });
+
     container.appendChild(newRow);
 }
 
@@ -253,7 +494,7 @@ function removeRow(btn) {
     if (container.querySelectorAll('.item-row').length > 1) {
         btn.closest('.item-row').remove();
     } else {
-        alert('You must have at least one instrument row.');
+        alert('Minimal harus ada 1 baris instrumen pada form intake.');
     }
 }
 
@@ -269,12 +510,24 @@ document.getElementById('bast-form').addEventListener('submit', function(e) {
             valid = false;
             return;
         }
+
+        const qtyVal = parseInt(row.querySelector('[data-field="qty"]').value, 10) || 1;
+        const unitPriceVal = parseInt(row.querySelector('[data-field="unit_price"]').value, 10) || 0;
+        const subconIdVal = row.querySelector('[data-field="subcontractor_id"]').value;
+        const subconPriceVal = parseInt(row.querySelector('[data-field="subcon_price"]').value, 10) || 0;
+
         items.push({
             instrument_name: instrumentName,
-            brand: row.querySelector('[data-field="brand"]').value.trim(),
-            model: row.querySelector('[data-field="model"]').value.trim(),
+            specification_desc: row.querySelector('[data-field="specification_desc"]').value.trim() || null,
+            brand: row.querySelector('[data-field="brand"]').value.trim() || null,
+            model: row.querySelector('[data-field="model"]').value.trim() || null,
             serial_number: serialNumber,
             scope: row.querySelector('[data-field="scope"]').value,
+            qty: qtyVal,
+            unit: row.querySelector('[data-field="unit"]').value.trim() || 'Unit',
+            unit_price: unitPriceVal,
+            subcontractor_id: subconIdVal ? parseInt(subconIdVal, 10) : null,
+            subcon_price: subconPriceVal,
             intake_condition: row.querySelector('[data-field="intake_condition"]').value,
             accessories: row.querySelector('[data-field="accessories"]').value.trim() || 'Unit Only',
         });
@@ -282,11 +535,38 @@ document.getElementById('bast-form').addEventListener('submit', function(e) {
 
     if (!valid || items.length === 0) {
         e.preventDefault();
-        alert('Please fill in Instrument Name and Serial Number for all rows.');
+        alert('Mohon isi Nama Instrumen dan Serial Number untuk seluruh baris.');
         return;
     }
 
     document.getElementById('items-json').value = JSON.stringify(items);
 });
+
+function openEditModal(btn) {
+    const ds = btn.dataset;
+    const form = document.getElementById('edit-item-form');
+    form.action = `/orders/{{ order.id }}/items/${ds.id}/edit`;
+
+    document.getElementById('edit_instrument_name').value = ds.name || '';
+    document.getElementById('edit_specification_desc').value = ds.spec || '';
+    document.getElementById('edit_brand').value = ds.brand || '';
+    document.getElementById('edit_model').value = ds.model || '';
+    document.getElementById('edit_serial_number').value = ds.serial || '';
+    document.getElementById('edit_scope').value = ds.scope || 'PRESSURE';
+    document.getElementById('edit_qty').value = ds.qty || '1';
+    document.getElementById('edit_unit').value = ds.unit || 'Unit';
+    document.getElementById('edit_unit_price').value = ds.unitPrice || '0';
+    document.getElementById('edit_subcontractor_id').value = ds.subconId || '';
+    document.getElementById('edit_subcon_price').value = ds.subconPrice || '0';
+    document.getElementById('edit_intake_condition').value = ds.condition || 'GOOD';
+    document.getElementById('edit_accessories').value = ds.accessories || 'Unit Only';
+    document.getElementById('edit_certificate_no').value = ds.cert || '';
+
+    document.getElementById('edit-item-modal').classList.remove('hidden');
+}
+
+function closeEditModal() {
+    document.getElementById('edit-item-modal').classList.add('hidden');
+}
 </script>
 {% endblock %}

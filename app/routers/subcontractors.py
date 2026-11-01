@@ -249,3 +249,4 @@ def action_subcontractors_delete(
         url="/subcontractors?success=Subcontractor+berhasil+dihapus",
         status_code=status.HTTP_303_SEE_OTHER,
     )
+

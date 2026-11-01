@@ -9,9 +9,10 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.models.customer import Customer
-from app.models.job_item import JobItem, JobStatus
+from app.models.job_item import JobItem, JobStatus, Scope
 from app.models.order import InvoiceStatus, Order, POStatus, ServiceType
 from app.models.po_out import PurchaseOrderOut
+from app.models.subcontractor import Subcontractor
 from app.schemas.order import OrderCreate, OrderRead, OrderUpdate
 from app.services.admin_hold import sync_order_job_items_release
 from app.services.doc_generator import (
@@ -184,7 +185,12 @@ def download_ordersheet_xlsx(order_id: int, db: Session = Depends(get_db)) -> Re
 
 
 @router.get("/orders/{order_id}/docs/tt")
-def download_tt_docx(order_id: int, db: Session = Depends(get_db)) -> Response:
+def download_tt_docx(
+    order_id: int,
+    keterangan: str = "Barang",
+    recipient_name: str | None = None,
+    db: Session = Depends(get_db),
+) -> Response:
     order = (
         db.query(Order)
         .options(joinedload(Order.customer), joinedload(Order.job_items))
@@ -194,7 +200,9 @@ def download_tt_docx(order_id: int, db: Session = Depends(get_db)) -> Response:
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    content = generate_tt_docx(order)
+    content = generate_tt_docx(
+        order, recipient_name=recipient_name, keterangan=keterangan
+    )
     safe_no = (order.tt_no or f"TT_{order.id}").replace("/", "_")
     filename = f"TandaTerima_{safe_no}.docx"
 
@@ -494,11 +502,15 @@ def page_order_detail(
     if stage_7:
         current_step = 8
 
+    subcontractors = db.query(Subcontractor).order_by(Subcontractor.vendor_name).all()
+
     return templates.TemplateResponse(
         request=request,
         name="orders/detail.html",
         context={
             "order": order,
+            "subcontractors": subcontractors,
+            "scopes": list(Scope),
             "stages": [
                 {"num": 1, "name": "Penawaran", "done": stage_1, "code": order.quotation_no},
                 {"num": 2, "name": "PO Customer", "done": stage_2, "code": order.po_no or "Pending"},

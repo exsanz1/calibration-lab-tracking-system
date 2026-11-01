@@ -49,6 +49,32 @@
                 </div>
             </div>
 
+            {% if selected_order and selected_order.job_items %}
+            <div class="rounded-xl border border-slate-200 p-4 bg-slate-50/70">
+                <label class="block text-xs font-bold uppercase tracking-wider text-text-main mb-2">
+                    Instrumen Terdaftar pada Order #{{ selected_order.id }} (Centang yang dimasukkan ke PO Keluar)
+                </label>
+                <div class="space-y-2">
+                    {% for it in selected_order.job_items %}
+                    <label class="flex items-center gap-3 p-2.5 rounded-lg bg-white border border-slate-200 hover:border-brand-primary cursor-pointer text-xs">
+                        <input type="checkbox" name="item_ids" value="{{ it.id }}" checked
+                               class="rounded border-slate-300 text-brand-primary focus:ring-brand-primary w-4 h-4">
+                        <div class="flex-1 flex items-center justify-between">
+                            <div>
+                                <span class="font-bold text-slate-900">{{ it.instrument_name }}</span>
+                                <span class="text-slate-500 font-mono ml-2">SN: {{ it.serial_number }}</span>
+                                <span class="text-slate-400 ml-2">({{ it.qty }} {{ it.unit }})</span>
+                            </div>
+                            <div class="font-mono text-slate-700">
+                                Modal: Rp {{ "{:,.0f}".format(it.subcon_price if it.subcon_price > 0 else it.unit_price).replace(",", ".") }}
+                            </div>
+                        </div>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
             <!-- PO Number & Job Info -->
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
@@ -134,3 +160,4 @@
     </div>
 </div>
 {% endblock %}
+

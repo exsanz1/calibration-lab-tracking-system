@@ -201,9 +201,15 @@ def action_po_out_create(
     vendor_quotation_no: str = Form("-"),
     notes: str = Form(""),
     onsite_fee: int = Form(0),
+    item_ids: list[int] = Form(default=[]),
     db: Session = Depends(get_db),
 ) -> Response:
-    order = db.get(Order, order_id)
+    order = (
+        db.query(Order)
+        .options(joinedload(Order.job_items))
+        .filter(Order.id == order_id)
+        .first()
+    )
     if not order:
         raise HTTPException(status_code=400, detail="Order not found")
 
@@ -231,9 +237,22 @@ def action_po_out_create(
     db.add(po)
     db.flush()
 
-    # Link items from this order
+    # Filter items belonging to that subcontractor without overwriting unrelated items
+    if item_ids:
+        target_items = [it for it in order.job_items if it.id in item_ids]
+    else:
+        target_items = [
+            it
+            for it in order.job_items
+            if it.subcontractor_id == subcontractor_id
+        ]
+        if not target_items:
+            target_items = [
+                it for it in order.job_items if it.subcontractor_id is None
+            ]
+
     subtot = onsite_fee
-    for item in order.job_items:
+    for item in target_items:
         item.po_out_id = po.id
         item.subcontractor_id = subcontractor_id
         price = item.subcon_price if item.subcon_price > 0 else item.unit_price
@@ -302,3 +321,4 @@ def download_po_out_docx(id: int, db: Session = Depends(get_db)) -> Response:
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+

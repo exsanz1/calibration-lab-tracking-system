@@ -114,3 +114,4 @@ def generate_certificate_no(seq: int, dt: date | None = None) -> str:
     target_dt = dt or date.today()
     mmyy = target_dt.strftime("%m%y")
     return f"NSI.{seq:04d}.{mmyy}"
+

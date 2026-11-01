@@ -46,3 +46,4 @@ class PurchaseOrderOut(Base):
     job_items: Mapped[list[JobItem]] = relationship(
         "JobItem", back_populates="po_out"
     )
+

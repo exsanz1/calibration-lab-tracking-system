@@ -5,13 +5,14 @@ import re
 from datetime import date
 from typing import Any
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.models.job_item import JobItem, JobStatus, Scope
 from app.models.order import Order
+from app.models.subcontractor import Subcontractor
 from app.schemas.job_item import (
     JobItemIntake,
     JobItemRead,
@@ -69,9 +70,13 @@ def page_bast_form(
         raise HTTPException(status_code=404, detail="Order not found")
     existing_items = (
         db.query(JobItem)
+        .options(joinedload(JobItem.subcontractor))
         .filter(JobItem.order_id == order_id)
         .order_by(JobItem.id.asc())
         .all()
+    )
+    subcontractors = (
+        db.query(Subcontractor).order_by(Subcontractor.vendor_name).all()
     )
     return templates.TemplateResponse(
         request=request,
@@ -79,8 +84,105 @@ def page_bast_form(
         context={
             "order": order,
             "existing_items": existing_items,
+            "subcontractors": subcontractors,
             "scopes": list(Scope),
         },
+    )
+
+
+@router.post("/orders/{order_id}/items/{item_id}/edit")
+def action_edit_order_item(
+    order_id: int,
+    item_id: int,
+    db: Session = Depends(get_db),
+    instrument_name: str = Form(...),
+    specification_desc: str = Form(""),
+    brand: str = Form(""),
+    model: str = Form(""),
+    serial_number: str = Form(...),
+    scope: str = Form(...),
+    qty: int = Form(1),
+    unit: str = Form("Unit"),
+    unit_price: int = Form(0),
+    subcontractor_id: str = Form(""),
+    subcon_price: int = Form(0),
+    accessories: str = Form("Unit Only"),
+    intake_condition: str = Form("GOOD"),
+    certificate_no: str = Form(""),
+    redirect_to: str = Form(""),
+) -> RedirectResponse:
+    item = db.get(JobItem, item_id)
+    if not item or item.order_id != order_id:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    order = (
+        db.query(Order)
+        .options(joinedload(Order.job_items))
+        .filter(Order.id == order_id)
+        .first()
+    )
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    item.instrument_name = instrument_name.strip()
+    item.specification_desc = specification_desc.strip() or None
+    item.brand = brand.strip() or None
+    item.model = model.strip() or None
+    item.serial_number = serial_number.strip()
+    item.scope = Scope(scope)
+    item.qty = max(1, qty)
+    item.unit = unit.strip() or "Unit"
+    item.unit_price = max(0, unit_price)
+
+    parsed_sub_id = (
+        int(subcontractor_id.strip())
+        if subcontractor_id and subcontractor_id.strip().isdigit()
+        else None
+    )
+    item.subcontractor_id = parsed_sub_id
+    item.subcon_price = max(0, subcon_price)
+    item.accessories = accessories.strip() or "Unit Only"
+    item.intake_condition = intake_condition.strip() or "GOOD"
+    if certificate_no.strip():
+        item.certificate_no = certificate_no.strip()
+
+    _recalc_order_financials(order)
+    db.commit()
+
+    target_url = redirect_to.strip() or f"/orders/{order_id}/bast"
+    return RedirectResponse(
+        url=f"{target_url}?success=Instrumen+berhasil+diperbarui",
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
+
+
+@router.post("/orders/{order_id}/items/{item_id}/delete")
+def action_delete_order_item(
+    order_id: int,
+    item_id: int,
+    redirect_to: str = Form(""),
+    db: Session = Depends(get_db),
+) -> RedirectResponse:
+    item = db.get(JobItem, item_id)
+    if not item or item.order_id != order_id:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    order = (
+        db.query(Order)
+        .options(joinedload(Order.job_items))
+        .filter(Order.id == order_id)
+        .first()
+    )
+    db.delete(item)
+    db.flush()
+    if order:
+        _recalc_order_financials(order)
+    db.commit()
+
+    target_url = redirect_to.strip() or f"/orders/{order_id}/bast"
+    return RedirectResponse(
+        url=f"{target_url}?success=Instrumen+berhasil+dihapus",
+        status_code=status.HTTP_303_SEE_OTHER,
     )
 
 

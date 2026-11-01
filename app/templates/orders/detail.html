@@ -210,11 +210,17 @@
                     <div class="text-xs font-bold text-slate-900">Tanda Terima (TT)</div>
                     <div class="text-[11px] text-text-muted mt-1 font-mono truncate">{{ order.tt_no or 'Belum dibuat' }}</div>
                 </div>
-                <div class="mt-4">
-                    <a href="/orders/{{ order.id }}/docs/tt"
+                <div class="mt-4 space-y-1.5">
+                    <a href="/orders/{{ order.id }}/docs/tt?keterangan=Barang"
                        class="w-full text-center block bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 font-semibold text-xs py-2 rounded-lg transition-colors">
-                        Unduh Tanda Terima
+                        Unduh TT (Barang)
                     </a>
+                    <div class="flex justify-between items-center text-[10px] px-1 text-slate-500">
+                        <span>Opsi lain:</span>
+                        <a href="/orders/{{ order.id }}/docs/tt?keterangan=Sertifikat" class="text-brand-primary hover:underline">Sertifikat</a>
+                        <span>•</span>
+                        <a href="/orders/{{ order.id }}/docs/tt?keterangan=Barang+%26+Sertifikat" class="text-brand-primary hover:underline">Keduanya</a>
+                    </div>
                 </div>
             </div>
 
@@ -405,6 +411,7 @@
                         <th class="px-4 py-3">Subcontractor</th>
                         <th class="px-4 py-3 text-right">Harga (IDR)</th>
                         <th class="px-4 py-3 text-right">Total (IDR)</th>
+                        <th class="px-4 py-3 text-right">Aksi</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100">
@@ -452,6 +459,36 @@
                         </td>
                         <td class="px-4 py-3 text-right font-mono font-bold text-slate-900">
                             Rp {{ "{:,.0f}".format(item.unit_price * item.qty).replace(",", ".") }}
+                        </td>
+                        <td class="px-4 py-3 text-right whitespace-nowrap">
+                            <button type="button"
+                                    data-id="{{ item.id }}"
+                                    data-name="{{ item.instrument_name }}"
+                                    data-spec="{{ item.specification_desc or '' }}"
+                                    data-brand="{{ item.brand or '' }}"
+                                    data-model="{{ item.model or '' }}"
+                                    data-serial="{{ item.serial_number }}"
+                                    data-scope="{{ item.scope.value }}"
+                                    data-qty="{{ item.qty }}"
+                                    data-unit="{{ item.unit }}"
+                                    data-unit-price="{{ item.unit_price }}"
+                                    data-subcon-id="{{ item.subcontractor_id or '' }}"
+                                    data-subcon-price="{{ item.subcon_price }}"
+                                    data-accessories="{{ item.accessories or 'Unit Only' }}"
+                                    data-condition="{{ item.intake_condition }}"
+                                    data-cert="{{ item.certificate_no or '' }}"
+                                    onclick="openEditModal(this)"
+                                    class="inline-flex items-center text-xs font-semibold text-brand-primary hover:text-brand-hover bg-brand-subtle hover:bg-sky-100 px-2 py-1 rounded transition-colors mr-1">
+                                ✏️ Edit
+                            </button>
+                            <form method="post" action="/orders/{{ order.id }}/items/{{ item.id }}/delete" class="inline"
+                                  onsubmit="return confirm('Hapus instrumen {{ item.instrument_name }} ({{ item.serial_number }})?')">
+                                <input type="hidden" name="redirect_to" value="/orders/{{ order.id }}">
+                                <button type="submit"
+                                        class="inline-flex items-center text-xs font-semibold text-rose-600 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 px-2 py-1 rounded transition-colors">
+                                    🗑️ Hapus
+                                </button>
+                            </form>
                         </td>
                     </tr>
                     {% endfor %}
@@ -544,4 +581,162 @@
     </div>
     {% endif %}
 </div>
+
+<!-- Edit Item Modal -->
+<div id="edit-item-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-surface rounded-2xl border border-slate-200 shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+        <div class="p-6 border-b border-slate-200 flex items-center justify-between bg-slate-50/50">
+            <h3 class="text-lg font-bold text-text-main flex items-center gap-2">
+                <span>✏️</span> Edit Data Instrumen Kalibrasi
+            </h3>
+            <button type="button" onclick="closeEditModal()" class="text-slate-400 hover:text-slate-600 text-lg font-bold">
+                ✕
+            </button>
+        </div>
+
+        <form method="post" id="edit-item-form" class="p-6 space-y-4">
+            <input type="hidden" name="redirect_to" value="/orders/{{ order.id }}">
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-text-main mb-1">Nama Instrumen *</label>
+                    <input type="text" name="instrument_name" id="edit_instrument_name" required
+                           class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-text-main mb-1">Serial Number / No. Tag *</label>
+                    <input type="text" name="serial_number" id="edit_serial_number" required
+                           class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm font-mono focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-text-main mb-1">Deskripsi Spesifikasi Teknis</label>
+                <input type="text" name="specification_desc" id="edit_specification_desc"
+                       class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                <span class="text-[11px] text-text-muted">Ditampilkan pada Surat Penawaran, Berita Acara, dan Invoice</span>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-text-main mb-1">Brand / Merek</label>
+                    <input type="text" name="brand" id="edit_brand"
+                           class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-text-main mb-1">Model / Tipe</label>
+                    <input type="text" name="model" id="edit_model"
+                           class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-text-main mb-1">Lingkup / Scope *</label>
+                    <select name="scope" id="edit_scope" required
+                            class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none bg-white">
+                        {% for s in scopes %}
+                        <option value="{{ s.value }}">{{ s.value }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-text-main mb-1">Qty</label>
+                    <input type="number" name="qty" id="edit_qty" min="1" required
+                           class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm font-bold focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-text-main mb-1">Satuan</label>
+                    <input type="text" name="unit" id="edit_unit" required
+                           class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-text-main mb-1">Harga Kalibrasi (IDR)</label>
+                    <input type="number" name="unit_price" id="edit_unit_price" min="0" step="1000"
+                           class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm font-mono focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-text-main mb-1">Modal Subcon (IDR)</label>
+                    <input type="number" name="subcon_price" id="edit_subcon_price" min="0" step="1000"
+                           class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm font-mono focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-text-main mb-1">Pelaksana Pekerjaan</label>
+                    <select name="subcontractor_id" id="edit_subcontractor_id"
+                            class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none bg-white">
+                        <option value="">In-house (Internal NSI)</option>
+                        {% for sub in subcontractors %}
+                        <option value="{{ sub.id }}">{{ sub.vendor_name }} (Subcon)</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-text-main mb-1">Kondisi Fisik</label>
+                    <select name="intake_condition" id="edit_intake_condition"
+                            class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none bg-white">
+                        <option value="GOOD">GOOD (Baik)</option>
+                        <option value="SCRATCHED">SCRATCHED (Baret)</option>
+                        <option value="DENTED">DENTED (Penyok)</option>
+                        <option value="DAMAGED">DAMAGED (Rusak)</option>
+                        <option value="DIRTY">DIRTY (Kotor)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-text-main mb-1">No. Sertifikat</label>
+                    <input type="text" name="certificate_no" id="edit_certificate_no" placeholder="NSI.0001.1026"
+                           class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm font-mono focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-text-main mb-1">Aksesoris / Kelengkapan Bawaan</label>
+                <input type="text" name="accessories" id="edit_accessories"
+                       class="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-sm focus:ring-2 focus:ring-[#0099FF] focus:border-[#0099FF] outline-none">
+            </div>
+
+            <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
+                <button type="button" onclick="closeEditModal()"
+                        class="px-5 py-2 rounded-xl text-sm font-semibold text-text-muted hover:bg-slate-100 transition-colors">
+                    Batal
+                </button>
+                <button type="submit"
+                        class="px-6 py-2 rounded-xl bg-brand-primary hover:bg-brand-hover text-white text-sm font-bold shadow-sm transition-colors">
+                    Simpan Perubahan
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openEditModal(btn) {
+    const ds = btn.dataset;
+    const form = document.getElementById('edit-item-form');
+    form.action = `/orders/{{ order.id }}/items/${ds.id}/edit`;
+
+    document.getElementById('edit_instrument_name').value = ds.name || '';
+    document.getElementById('edit_specification_desc').value = ds.spec || '';
+    document.getElementById('edit_brand').value = ds.brand || '';
+    document.getElementById('edit_model').value = ds.model || '';
+    document.getElementById('edit_serial_number').value = ds.serial || '';
+    document.getElementById('edit_scope').value = ds.scope || 'PRESSURE';
+    document.getElementById('edit_qty').value = ds.qty || '1';
+    document.getElementById('edit_unit').value = ds.unit || 'Unit';
+    document.getElementById('edit_unit_price').value = ds.unitPrice || '0';
+    document.getElementById('edit_subcontractor_id').value = ds.subconId || '';
+    document.getElementById('edit_subcon_price').value = ds.subconPrice || '0';
+    document.getElementById('edit_intake_condition').value = ds.condition || 'GOOD';
+    document.getElementById('edit_accessories').value = ds.accessories || 'Unit Only';
+    document.getElementById('edit_certificate_no').value = ds.cert || '';
+
+    document.getElementById('edit-item-modal').classList.remove('hidden');
+}
+
+function closeEditModal() {
+    document.getElementById('edit-item-modal').classList.add('hidden');
+}
+</script>
 {% endblock %}

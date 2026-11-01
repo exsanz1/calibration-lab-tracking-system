@@ -433,3 +433,193 @@ def test_subcontractor_and_po_out_crud(
     res = client.get(f"/po-out/{po_id}/doc")
     assert res.status_code == 200
     assert len(res.content) > 1000
+
+
+# ==========================================
+# 6. Instrument Intake, Edit & Delete, and PO Filtering Patch Tests
+# ==========================================
+
+
+def test_bast_save_form_with_pricing_and_financials_recalc(
+    client: TestClient, db_session: Session, sample_order: Order, sample_subcontractor: Subcontractor
+) -> None:
+    # 1. Check GET /orders/{id}/bast includes subcontractors in context
+    res = client.get(f"/orders/{sample_order.id}/bast")
+    assert res.status_code == 200
+    assert sample_subcontractor.vendor_name in res.text
+
+    # 2. Submit new instruments via POST /orders/{id}/bast/save with pricing & subcon
+    payload_items = [
+        {
+            "instrument_name": "Micrometer Outside 0-25mm",
+            "specification_desc": "Outside Micrometer Range 0-25mm Resolution 0.001mm",
+            "brand": "Mitutoyo",
+            "model": "103-137",
+            "serial_number": "SN-MIC-0911",
+            "scope": "DIMENSION",
+            "qty": 2,
+            "unit": "Unit",
+            "unit_price": 350000,
+            "subcontractor_id": str(sample_subcontractor.id),
+            "subcon_price": 200000,
+            "intake_condition": "GOOD",
+            "accessories": "Standard Wooden Box & Setting Standard",
+        }
+    ]
+
+    import json
+    res = client.post(
+        f"/orders/{sample_order.id}/bast/save",
+        data={"items_json": json.dumps(payload_items)},
+        follow_redirects=True,
+    )
+    assert res.status_code == 200
+
+    db_session.refresh(sample_order)
+    new_item = (
+        db_session.query(JobItem)
+        .filter(JobItem.serial_number == "SN-MIC-0911")
+        .first()
+    )
+    assert new_item is not None
+    assert new_item.specification_desc == "Outside Micrometer Range 0-25mm Resolution 0.001mm"
+    assert new_item.qty == 2
+    assert new_item.unit == "Unit"
+    assert new_item.unit_price == 350000
+    assert new_item.subcontractor_id == sample_subcontractor.id
+    assert new_item.subcon_price == 200000
+
+    # Financials recalculated:
+    # Existing sample_order items: (500000 * 2) + (1200000 * 1) = 2,200,000
+    # Added: 350000 * 2 = 700,000 -> Total Subtotal = 2,900,000
+    assert sample_order.subtotal == 2900000
+    assert sample_order.ppn_amount == int(2900000 * 0.11)
+    assert sample_order.grand_total == 2900000 + int(2900000 * 0.11)
+
+
+def test_item_edit_and_delete_endpoints(
+    client: TestClient, db_session: Session, sample_order: Order
+) -> None:
+    item = sample_order.job_items[0]
+    initial_subtotal = sample_order.subtotal
+
+    # Edit item: change unit_price to 750000 and qty to 3
+    edit_data = {
+        "instrument_name": "Digital Pressure Gauge Upgraded",
+        "specification_desc": "High Accuracy Digital Pressure Gauge 0-100 bar",
+        "brand": "WIKA Upgraded",
+        "model": "CPG1500-A",
+        "serial_number": item.serial_number,
+        "scope": "PRESSURE",
+        "qty": 3,
+        "unit": "Unit",
+        "unit_price": 750000,
+        "subcontractor_id": "",
+        "subcon_price": 0,
+        "accessories": "Calibration Flange",
+        "intake_condition": "GOOD",
+        "certificate_no": "NSI.9999.1026",
+        "redirect_to": f"/orders/{sample_order.id}",
+    }
+
+    res = client.post(
+        f"/orders/{sample_order.id}/items/{item.id}/edit",
+        data=edit_data,
+        follow_redirects=True,
+    )
+    assert res.status_code == 200
+    db_session.refresh(item)
+    db_session.refresh(sample_order)
+
+    assert item.instrument_name == "Digital Pressure Gauge Upgraded"
+    assert item.qty == 3
+    assert item.unit_price == 750000
+    assert item.certificate_no == "NSI.9999.1026"
+
+    # Subtotal recalculated
+    # item1 was 500000 * 2 = 1,000,000, now 750000 * 3 = 2,250,000 (diff +1,250,000)
+    assert sample_order.subtotal == initial_subtotal + 1250000
+
+    # Delete item
+    item_id = item.id
+    del_res = client.post(
+        f"/orders/{sample_order.id}/items/{item_id}/delete",
+        data={"redirect_to": f"/orders/{sample_order.id}"},
+        follow_redirects=True,
+    )
+    assert del_res.status_code == 200
+    db_session.expire_all()
+    db_session.refresh(sample_order)
+
+    deleted_item = db_session.get(JobItem, item_id)
+    assert deleted_item is None
+    # Subtotal updated after deletion
+    assert sample_order.subtotal == (sample_order.job_items[0].unit_price * sample_order.job_items[0].qty)
+
+
+def test_po_out_does_not_overwrite_unrelated_items(
+    client: TestClient, db_session: Session, sample_order: Order, sample_subcontractor: Subcontractor
+) -> None:
+    # Assign only item[0] to sample_subcontractor
+    sub2 = Subcontractor(
+        vendor_name="PT Vendor Lain",
+        pic_name="Iwan",
+        phone="021-333444",
+        email="iwan@lain.com",
+        address="Jakarta",
+    )
+    db_session.add(sub2)
+    db_session.commit()
+    db_session.refresh(sub2)
+
+    item_a = sample_order.job_items[0]
+    item_b = sample_order.job_items[1]
+    item_a.subcontractor_id = sample_subcontractor.id
+    item_b.subcontractor_id = sub2.id
+    db_session.commit()
+
+    po_data = {
+        "subcontractor_id": sample_subcontractor.id,
+        "order_id": sample_order.id,
+        "po_out_no": "0105/PO-NSI/X/2026",
+        "job_info": "Kalibrasi",
+        "po_date": str(date.today()),
+        "delivery_date": str(date.today() + timedelta(days=5)),
+        "vendor_quotation_no": "-",
+        "notes": "",
+        "onsite_fee": 0,
+    }
+
+    res = client.post("/po-out", data=po_data, follow_redirects=True)
+    assert res.status_code == 200
+
+    db_session.refresh(item_a)
+    db_session.refresh(item_b)
+
+    po = (
+        db_session.query(PurchaseOrderOut)
+        .filter(PurchaseOrderOut.po_out_no == "0105/PO-NSI/X/2026")
+        .first()
+    )
+    assert po is not None
+    # Item A is linked to po
+    assert item_a.po_out_id == po.id
+    # Item B belongs to sub2, must NOT be overwritten!
+    assert item_b.subcontractor_id == sub2.id
+    assert item_b.po_out_id != po.id
+
+
+def test_tt_docx_company_name_and_keterangan(
+    client: TestClient, sample_order: Order
+) -> None:
+    # Test docx generator defaults recipient to company name
+    doc_bytes = generate_tt_docx(sample_order, keterangan="Sertifikat")
+    assert len(doc_bytes) > 1000
+
+    # Test HTTP endpoint with query params
+    res = client.get(
+        f"/orders/{sample_order.id}/docs/tt?keterangan=Sertifikat&recipient_name=PT+Custom+Name"
+    )
+    assert res.status_code == 200
+    assert "wordprocessingml" in res.headers["content-type"]
+
