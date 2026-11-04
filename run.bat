@@ -64,7 +64,7 @@ echo.
 
 :run_app
 :: 3. Launch Default Browser after 2 seconds
-start "" cmd /c "timeout /t 2 /nobreak >nul && start http://127.0.0.1:8000"
+start "" cmd /c "timeout /t 2 /nobreak >nul && start http://192.168.1.75:8000"
 
 :: 4. Start Uvicorn Server
 echo ====================================================================
@@ -75,7 +75,8 @@ echo   Tekan Ctrl+C untuk menghentikan server.
 echo ====================================================================
 echo.
 
-"%PYTHON_CMD%" -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+
+"%PYTHON_CMD%" -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 echo.
 pause

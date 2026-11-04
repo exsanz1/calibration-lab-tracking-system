@@ -18,6 +18,7 @@ if TYPE_CHECKING:
 class POStatus(str, enum.Enum):
     PENDING = "PENDING"
     RECEIVED = "RECEIVED"
+    CANCELLED = "CANCELLED"
 
 
 class ServiceType(str, enum.Enum):

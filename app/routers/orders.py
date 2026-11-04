@@ -259,8 +259,91 @@ def download_invoice_docx(order_id: int, db: Session = Depends(get_db)) -> Respo
 
 
 # ==========================================
-# WORKFLOW NUMBER GENERATION SHORTCUTS
+# WORKFLOW NUMBER GENERATION & ACTIONS
 # ==========================================
+
+
+@router.post("/orders/{order_id}/cancel")
+@router.post("/orders/{order_id}/actions/cancel-order")
+def action_cancel_order(order_id: int, db: Session = Depends(get_db)) -> RedirectResponse:
+    order = (
+        db.query(Order)
+        .options(joinedload(Order.job_items))
+        .filter(Order.id == order_id)
+        .first()
+    )
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    order.po_status = POStatus.CANCELLED
+    for it in order.job_items:
+        it.status = JobStatus.CANCELLED
+        it.release_allowed = False
+    db.commit()
+
+    return RedirectResponse(
+        url=f"/orders/{order_id}?success=Penawaran+berhasil+dibatalkan+(CANCELLED)",
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
+
+
+@router.post("/orders/{order_id}/actions/confirm-po")
+def action_confirm_po(
+    order_id: int,
+    po_no: str = Form(""),
+    db: Session = Depends(get_db),
+) -> RedirectResponse:
+    order = (
+        db.query(Order)
+        .options(joinedload(Order.job_items))
+        .filter(Order.id == order_id)
+        .first()
+    )
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    order.po_status = POStatus.RECEIVED
+    if po_no.strip():
+        order.po_no = po_no.strip()
+    sync_order_job_items_release(order)
+    db.commit()
+
+    return RedirectResponse(
+        url=f"/orders/{order_id}?success=PO+Customer+berhasil+dikonfirmasi",
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
+
+
+@router.post("/orders/{order_id}/actions/receive-items")
+def action_receive_items(order_id: int, db: Session = Depends(get_db)) -> RedirectResponse:
+    order = (
+        db.query(Order)
+        .options(joinedload(Order.job_items))
+        .filter(Order.id == order_id)
+        .first()
+    )
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    if order.po_status == POStatus.CANCELLED:
+        return RedirectResponse(
+            url=f"/orders/{order_id}?error=Penerimaan+alat+gagal:+Pesanan+telah+dibatalkan",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+    if not order.received_date:
+        order.received_date = date.today()
+
+    for it in order.job_items:
+        if it.status == JobStatus.ORDERED:
+            it.status = JobStatus.RECEIVED
+
+    sync_order_job_items_release(order)
+    db.commit()
+    return RedirectResponse(
+        url=f"/orders/{order_id}?success=Penerimaan+fisik+alat+berhasil+dikonfirmasi",
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
 
 
 @router.post("/orders/{order_id}/gen/quotation")
@@ -291,16 +374,132 @@ def action_gen_quotation(order_id: int, db: Session = Depends(get_db)) -> Redire
 @router.post("/orders/{order_id}/gen/ordersheet")
 @router.post("/orders/{order_id}/actions/gen-ordersheet")
 def action_gen_ordersheet(order_id: int, db: Session = Depends(get_db)) -> RedirectResponse:
-    order = db.get(Order, order_id)
+    order = (
+        db.query(Order)
+        .options(joinedload(Order.job_items))
+        .filter(Order.id == order_id)
+        .first()
+    )
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
+    if order.po_status == POStatus.CANCELLED:
+        return RedirectResponse(
+            url=f"/orders/{order_id}?error=Ordersheet+tidak+dapat+dibuat:+Pesanan+telah+dibatalkan",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+    if not order.job_items:
+        return RedirectResponse(
+            url=f"/orders/{order_id}?error=Ordersheet+tidak+dapat+dibuat:+Belum+ada+instrumen+terdaftar",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+    if not order.received_date:
+        return RedirectResponse(
+            url=f"/orders/{order_id}?error=Ordersheet+hanya+dapat+dibuat+setelah+alat+diterima+dari+customer+(Tahap+4)",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
     if not order.ordersheet_no:
-        order.ordersheet_no = generate_ordersheet_no(order.id, order.received_date or date.today())
+        order.ordersheet_no = generate_ordersheet_no(order.id, order.received_date)
+
+    # Move any items in RECEIVED to QUEUED
+    for it in order.job_items:
+        if it.status == JobStatus.RECEIVED:
+            it.status = JobStatus.QUEUED
+
     db.commit()
 
     return RedirectResponse(
-        url=f"/orders/{order_id}?success=Nomor+ordersheet+berhasil+diterbitkan",
+        url=f"/orders/{order_id}?success=Nomor+ordersheet+berhasil+diterbitkan+dan+antrean+alat+dimulai",
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
+
+
+@router.post("/orders/{order_id}/gen/tt")
+@router.post("/orders/{order_id}/actions/gen-tt")
+def action_gen_tt(order_id: int, db: Session = Depends(get_db)) -> RedirectResponse:
+    order = (
+        db.query(Order)
+        .options(joinedload(Order.job_items))
+        .filter(Order.id == order_id)
+        .first()
+    )
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    if order.po_status == POStatus.CANCELLED:
+        return RedirectResponse(
+            url=f"/orders/{order_id}?error=Tanda+Terima+tidak+dapat+diterbitkan:+Pesanan+telah+dibatalkan",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+    if not order.job_items:
+        return RedirectResponse(
+            url=f"/orders/{order_id}?error=Tanda+Terima+tidak+dapat+diterbitkan:+Belum+ada+instrumen+terdaftar",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+    today = date.today()
+    if not order.tt_no:
+        order.tt_no = generate_tt_no(order.id, today)
+    if not order.returned_date:
+        order.returned_date = today
+
+    db.commit()
+    return RedirectResponse(
+        url=f"/orders/{order_id}?success=Tanda+Terima+pengembalian+alat+berhasil+diterbitkan",
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
+
+
+@router.post("/orders/{order_id}/gen/ba")
+@router.post("/orders/{order_id}/actions/gen-ba")
+def action_gen_ba(order_id: int, db: Session = Depends(get_db)) -> RedirectResponse:
+    order = (
+        db.query(Order)
+        .options(joinedload(Order.job_items))
+        .filter(Order.id == order_id)
+        .first()
+    )
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    if order.po_status == POStatus.CANCELLED:
+        return RedirectResponse(
+            url=f"/orders/{order_id}?error=Berita+Acara+tidak+dapat+diterbitkan:+Pesanan+telah+dibatalkan",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+    if order.po_status != POStatus.RECEIVED:
+        return RedirectResponse(
+            url=f"/orders/{order_id}?error=Berita+Acara+tidak+dapat+diterbitkan:+Status+PO+masih+PENDING",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+    if not order.job_items:
+        return RedirectResponse(
+            url=f"/orders/{order_id}?error=Berita+Acara+tidak+dapat+diterbitkan:+Belum+ada+instrumen+terdaftar",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+
+    for it in order.job_items:
+        if it.status not in (JobStatus.CERT_READY, JobStatus.DELIVERED):
+            return RedirectResponse(
+                url=f"/orders/{order_id}?error=Berita+Acara+tidak+dapat+diterbitkan:+Instrumen+{it.instrument_name}+belum+selesai",
+                status_code=status.HTTP_303_SEE_OTHER,
+            )
+
+    today = date.today()
+    if not order.bast_no:
+        order.bast_no = generate_bast_no(order.id, today)
+    if not order.returned_date:
+        order.returned_date = today
+
+    db.commit()
+    return RedirectResponse(
+        url=f"/orders/{order_id}?success=Berita+Acara+selesai+pekerjaan+berhasil+diterbitkan",
         status_code=status.HTTP_303_SEE_OTHER,
     )
 
@@ -316,6 +515,12 @@ def action_gen_bast(order_id: int, db: Session = Depends(get_db)) -> RedirectRes
     )
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+
+    if order.po_status == POStatus.CANCELLED:
+        return RedirectResponse(
+            url=f"/orders/{order_id}?error=BAST+tidak+dapat+diterbitkan:+Pesanan+telah+dibatalkan",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
 
     # Guardrails check
     if order.po_status != POStatus.RECEIVED:
@@ -363,6 +568,12 @@ def action_gen_invoice(order_id: int, db: Session = Depends(get_db)) -> Redirect
     )
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+
+    if order.po_status == POStatus.CANCELLED:
+        return RedirectResponse(
+            url=f"/orders/{order_id}?error=Invoice+tidak+dapat+diterbitkan:+Pesanan+telah+dibatalkan",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
 
     if not order.bast_no:
         return RedirectResponse(
@@ -465,27 +676,25 @@ def page_order_detail(
     recalc_order_financials(order)
     db.commit()
 
-    # Determine 7-stage workflow completion states:
-    # 1. Penawaran
-    stage_1 = bool(order.quotation_no)
-    # 2. PO Masuk
-    stage_2 = order.po_status == POStatus.RECEIVED
-    # 3. Ordersheet
-    stage_3 = bool(order.ordersheet_no)
+    # Determine 8-stage workflow completion states:
+    # 1. Permintaan Customer
+    stage_1 = len(order.job_items) > 0
+    # 2. Pembuatan Penawaran
+    stage_2 = bool(order.quotation_no)
+    # 3. Penerimaan PO Customer
+    stage_3 = order.po_status == POStatus.RECEIVED
     # 4. Penerimaan Alat
-    stage_4 = bool(order.received_date) and len(order.job_items) > 0
-    # 5. Pengerjaan Alat
-    all_ready = (
-        len(order.job_items) > 0
-        and all(it.status in (JobStatus.CERT_READY, JobStatus.DELIVERED) for it in order.job_items)
-    )
-    stage_5 = all_ready
-    # 6. Pengembalian Alat (TT + BA)
-    stage_6 = bool(order.bast_no) and bool(order.tt_no)
-    # 7. Invoice
-    stage_7 = bool(order.invoice_no)
+    stage_4 = bool(order.received_date) and any(it.status != JobStatus.ORDERED for it in order.job_items)
+    # 5. Pembuatan Ordersheet
+    stage_5 = bool(order.ordersheet_no)
+    # 6. Pembuatan TT Pengembalian Alat
+    stage_6 = bool(order.tt_no)
+    # 7. Pembuatan BA Selesai Pekerjaan
+    stage_7 = bool(order.bast_no)
+    # 8. Pembuatan Invoice
+    stage_8 = bool(order.invoice_no)
 
-    # Current active step index (1-7)
+    # Current active step index (1-8, or 9 when completed)
     current_step = 1
     if stage_1:
         current_step = 2
@@ -501,6 +710,8 @@ def page_order_detail(
         current_step = 7
     if stage_7:
         current_step = 8
+    if stage_8:
+        current_step = 9
 
     subcontractors = db.query(Subcontractor).order_by(Subcontractor.vendor_name).all()
 
@@ -512,13 +723,14 @@ def page_order_detail(
             "subcontractors": subcontractors,
             "scopes": list(Scope),
             "stages": [
-                {"num": 1, "name": "Penawaran", "done": stage_1, "code": order.quotation_no},
-                {"num": 2, "name": "PO Customer", "done": stage_2, "code": order.po_no or "Pending"},
-                {"num": 3, "name": "Ordersheet", "done": stage_3, "code": order.ordersheet_no},
-                {"num": 4, "name": "Penerimaan Alat", "done": stage_4, "code": f"{len(order.job_items)} Item"},
-                {"num": 5, "name": "Pengerjaan Alat", "done": stage_5, "code": "Selesai" if stage_5 else "Proses"},
-                {"num": 6, "name": "Pengembalian (TT+BA)", "done": stage_6, "code": order.bast_no},
-                {"num": 7, "name": "Invoice", "done": stage_7, "code": order.invoice_no},
+                {"num": 1, "name": "Permintaan Alat", "done": stage_1, "code": f"{len(order.job_items)} Item"},
+                {"num": 2, "name": "Penawaran", "done": stage_2, "code": order.quotation_no},
+                {"num": 3, "name": "PO Customer", "done": stage_3, "code": "Dibatalkan" if order.po_status == POStatus.CANCELLED else (order.po_no or ("Diterima" if stage_3 else "Pending"))},
+                {"num": 4, "name": "Penerimaan Alat", "done": stage_4, "code": order.received_date.strftime("%d/%m/%Y") if order.received_date else "Belum Diterima"},
+                {"num": 5, "name": "Ordersheet", "done": stage_5, "code": order.ordersheet_no},
+                {"num": 6, "name": "TT Pengembalian", "done": stage_6, "code": order.tt_no},
+                {"num": 7, "name": "BA Selesai", "done": stage_7, "code": order.bast_no},
+                {"num": 8, "name": "Invoice", "done": stage_8, "code": order.invoice_no},
             ],
             "current_step": current_step,
             "success_msg": success,
@@ -640,8 +852,6 @@ def page_order_save(
         db.flush()
         if not order.quotation_no:
             order.quotation_no = generate_quotation_no(order.id, parsed_quotation_date or date.today())
-        if not order.ordersheet_no:
-            order.ordersheet_no = generate_ordersheet_no(order.id, parsed_received or date.today())
 
     db.commit()
     return RedirectResponse(url=f"/orders/{order.id}", status_code=303)

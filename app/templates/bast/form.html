@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}BAST Intake - {{ order.quotation_no or ('Order #' ~ order.id) }} - CalibTrack{% endblock %}
+{% block title %}Daftar Permintaan & Intake Fisik - {{ order.quotation_no or ('Order #' ~ order.id) }} - CalibTrack{% endblock %}
 {% block content %}
 <div class="mb-6">
     <div class="flex items-center gap-2 text-sm text-text-muted mb-2">
@@ -7,7 +7,7 @@
         <span>/</span>
         <a href="/orders/{{ order.id }}" class="hover:text-text-main font-medium">{{ order.quotation_no or ('Order #' ~ order.id) }}</a>
         <span>/</span>
-        <span class="text-text-main font-medium">BAST Intake</span>
+        <span class="text-text-main font-medium">Daftar Permintaan & Penerimaan Alat</span>
     </div>
 
     {% if request.query_params.get('success') %}
@@ -21,13 +21,18 @@
 
     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-            <h2 class="text-2xl font-bold text-text-main">Berita Acara Serah Terima (BAST) & Intake Instrumen</h2>
+            <h2 class="text-2xl font-bold text-text-main">Daftar Permintaan Alat & Penerimaan Fisik (Intake)</h2>
+            <p class="text-xs text-text-muted mt-0.5">Formulir Pendaftaran & Berita Acara Serah Terima (BAST) Penerimaan Fisik Instrumen</p>
             <div class="flex flex-wrap items-center gap-4 mt-2 text-sm text-text-muted">
                 <span>Quotation: <strong class="text-text-main">{{ order.quotation_no or '-' }}</strong></span>
                 <span>Customer: <strong class="text-text-main">{{ order.customer.company_name }}</strong></span>
-                <span>BAST No: <strong class="text-text-main font-mono">{{ order.bast_no or '-' }}</strong></span>
+                <span>Tgl Terima Fisik: <strong class="text-text-main">{{ order.received_date.strftime('%d/%m/%Y') if order.received_date else 'Belum Diterima' }}</strong></span>
                 <span>PO: 
-                    {% if order.po_status.value == 'PENDING' %}
+                    {% if order.po_status.value == 'CANCELLED' %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+                        CANCELLED
+                    </span>
+                    {% elif order.po_status.value == 'PENDING' %}
                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
                         HOLD ADMIN (PO PENDING)
                     </span>
@@ -51,7 +56,37 @@
     </div>
 </div>
 
-{% if order.po_status.value == 'PENDING' %}
+{% set has_ordered_items = existing_items | selectattr('status.value', 'equalto', 'ORDERED') | list | length > 0 %}
+{% if (has_ordered_items or not order.received_date) and order.po_status.value != 'CANCELLED' %}
+<div class="mb-6 p-4 rounded-xl border border-sky-200 bg-sky-50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div class="flex items-center gap-3">
+        <span class="text-brand-primary text-2xl font-bold">📦</span>
+        <div>
+            <h4 class="text-sm font-bold text-slate-800">Tahap 4: Konfirmasi Penerimaan Fisik Alat</h4>
+            <p class="text-xs text-text-muted mt-0.5">
+                Sebagian atau seluruh instrumen belum tercatat diterima secara fisik di lab. Klik tombol ini saat fisik alat tiba di laboratorium agar masuk ke papan kerja Kanban.
+            </p>
+        </div>
+    </div>
+    <form method="post" action="/orders/{{ order.id }}/actions/receive-items" onsubmit="return confirm('Konfirmasi bahwa fisik seluruh instrumen telah diterima di lab?')">
+        <button type="submit" class="bg-brand-primary hover:bg-brand-hover text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-colors whitespace-nowrap shadow-sm">
+            📦 Konfirmasi Penerimaan Fisik Alat (Tahap 4)
+        </button>
+    </form>
+</div>
+{% endif %}
+
+{% if order.po_status.value == 'CANCELLED' %}
+<div class="mb-6 p-4 rounded-xl border border-rose-200 bg-rose-50 flex items-start gap-3">
+    <span class="text-rose-600 text-xl font-bold">✕</span>
+    <div>
+        <h4 class="text-sm font-semibold text-rose-800">Pesanan Dibatalkan (Order Cancelled)</h4>
+        <p class="text-xs text-rose-700 mt-0.5">
+            Penawaran/pesanan ini telah dibatalkan. Seluruh instrumen berada dalam status CANCELLED dan tidak diproses di laboratorium.
+        </p>
+    </div>
+</div>
+{% elif order.po_status.value == 'PENDING' %}
 <div class="mb-6 p-4 rounded-xl border border-amber-200 bg-amber-50 flex items-start gap-3">
     <span class="text-amber-600 text-xl font-bold">🔒</span>
     <div>
@@ -136,7 +171,15 @@
                         {% endif %}
                     </td>
                     <td class="px-4 py-3 text-center whitespace-nowrap">
-                        {% if item.status.value in ('CERT_READY', 'DELIVERED') %}
+                        {% if item.status.value == 'ORDERED' %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-300">
+                            ORDERED (Belum Tiba)
+                        </span>
+                        {% elif item.status.value == 'CANCELLED' %}
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                            CANCELLED
+                        </span>
+                        {% elif item.status.value in ('CERT_READY', 'DELIVERED') %}
                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                             {{ item.status.value }}
                         </span>
@@ -201,6 +244,14 @@
 
     <form method="post" action="/orders/{{ order.id }}/bast/save" id="bast-form">
         <input type="hidden" name="items_json" id="items-json">
+
+        <label class="flex items-center gap-3 cursor-pointer text-xs font-semibold text-slate-800 bg-sky-50/80 border border-sky-200 p-3.5 rounded-xl mb-4">
+            <input type="checkbox" name="is_physical_intake" id="is_physical_intake" value="true" class="w-4 h-4 rounded text-brand-primary focus:ring-brand-primary" {% if order.received_date %}checked{% endif %}>
+            <div>
+                <span class="font-bold text-slate-900">📦 Tandai Fisik Alat Sudah Diterima di Laboratorium (Tahap 4)</span>
+                <span class="block text-[11px] text-text-muted mt-0.5">Jika dicentang, status instrumen langsung RECEIVED dan masuk ke papan Kanban. Jika tidak dicentang (misal tahap pembuatan penawaran awal), instrumen berstatus ORDERED hingga fisik alat diserahkan.</span>
+            </div>
+        </label>
 
         <div id="items-container" class="space-y-4">
             <div class="item-row p-5 rounded-xl bg-slate-50 border border-slate-200 space-y-3">

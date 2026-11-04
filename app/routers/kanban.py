@@ -8,7 +8,7 @@ from app.database import get_db
 from app.models.customer import Customer
 from app.models.job_item import JobItem, JobStatus, Scope
 from app.models.master_equipment import EquipmentStatus, MasterEquipment
-from app.models.order import Order, ServiceType
+from app.models.order import Order, POStatus, ServiceType
 from app.templates_config import templates
 
 router = APIRouter()
@@ -33,11 +33,13 @@ def page_kanban(
     assigned_tech: str = "",
     service_type: str = "",
 ) -> HTMLResponse:
-    # Base query with eager loading
+    # Base query with eager loading (exclude cancelled orders, unreceived ordered items, and cancelled items)
     query = (
         db.query(JobItem)
         .join(JobItem.order)
         .join(Order.customer)
+        .filter(Order.po_status != POStatus.CANCELLED)
+        .filter(JobItem.status.notin_([JobStatus.ORDERED, JobStatus.CANCELLED]))
         .options(
             joinedload(JobItem.order).joinedload(Order.customer),
             joinedload(JobItem.master_equipment),

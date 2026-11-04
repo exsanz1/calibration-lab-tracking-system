@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.models.job_item import JobItem, JobStatus, Scope
-from app.models.order import Order
+from app.models.order import Order, POStatus
 from app.models.subcontractor import Subcontractor
 from app.schemas.job_item import (
     JobItemIntake,
@@ -191,6 +191,7 @@ def page_bast_save(
     order_id: int,
     db: Session = Depends(get_db),
     items_json: str = Form(...),
+    is_physical_intake: str = Form(""),
 ) -> RedirectResponse:
     order = db.get(Order, order_id)
     if not order:
@@ -198,6 +199,9 @@ def page_bast_save(
 
     items_data: list[dict[str, Any]] = json.loads(items_json)
     seq = _get_next_sequence(db, order_id)
+    mark_as_received = bool(
+        is_physical_intake and is_physical_intake.lower() in ("true", "1", "on", "yes")
+    ) or (order.received_date is not None)
 
     for item_data in items_data:
         qr_tag = _generate_qr_tag(order_id, seq)
@@ -209,6 +213,10 @@ def page_bast_save(
             else None
         )
         subcon_price = int(item_data.get("subcon_price") or 0)
+
+        initial_status = JobStatus.RECEIVED if mark_as_received else JobStatus.ORDERED
+        if order.po_status == POStatus.CANCELLED:
+            initial_status = JobStatus.CANCELLED
 
         job_item = JobItem(
             order_id=order_id,
@@ -226,7 +234,7 @@ def page_bast_save(
             subcon_price=subcon_price,
             accessories=item_data.get("accessories") or "Unit Only",
             intake_condition=item_data.get("intake_condition") or "GOOD",
-            status=JobStatus.RECEIVED,
+            status=initial_status,
         )
         sync_job_item_release(job_item, order.po_status)
         db.add(job_item)
@@ -235,7 +243,7 @@ def page_bast_save(
             job_item.certificate_no = generate_certificate_no(job_item.id)
         seq += 1
 
-    if not order.received_date:
+    if mark_as_received and not order.received_date:
         order.received_date = date.today()
 
     _recalc_order_financials(order)

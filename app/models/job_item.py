@@ -33,6 +33,7 @@ class JobStatus(str, enum.Enum):
     CERT_READY = "CERT_READY"
     HOLD_ADMIN = "HOLD_ADMIN"
     DELIVERED = "DELIVERED"
+    CANCELLED = "CANCELLED"
 
 
 class JobItem(Base):
@@ -61,7 +62,7 @@ class JobItem(Base):
     )
 
     # Technical pipeline status
-    status: Mapped[JobStatus] = mapped_column(default=JobStatus.RECEIVED)
+    status: Mapped[JobStatus] = mapped_column(default=JobStatus.ORDERED)
     assigned_tech: Mapped[str | None] = mapped_column(String(100), default=None)
     accessories: Mapped[str | None] = mapped_column(String(200), default="Unit Only")
     intake_condition: Mapped[str] = mapped_column(String(50), default="GOOD")

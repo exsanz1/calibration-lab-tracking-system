@@ -31,13 +31,14 @@ def generate_daily_alerts(
     # Step 1: Ensure any overdue master equipment is synchronized to EXPIRED
     sync_and_evaluate_equipment_status(db, current_today)
 
-    # Step 2: SLA Alerts (non-delivered items due in <= 3 days or overdue)
+    # Step 2: SLA Alerts (non-delivered items due in <= 3 days or overdue; exclude cancelled/ordered)
     active_items = (
         db.query(JobItem)
         .join(Order, JobItem.order_id == Order.id)
         .options(joinedload(JobItem.order).joinedload(Order.customer))
         .filter(
-            JobItem.status != JobStatus.DELIVERED,
+            Order.po_status != POStatus.CANCELLED,
+            JobItem.status.notin_([JobStatus.DELIVERED, JobStatus.ORDERED, JobStatus.CANCELLED]),
             Order.target_sla_date.isnot(None),
         )
         .all()
@@ -68,12 +69,13 @@ def generate_daily_alerts(
 
     sla_alerts.sort(key=lambda x: x.days_remaining)
 
-    # Step 3: Admin Holds (items at CERT_READY blocked by PO Pending / release_allowed == False)
+    # Step 3: Admin Holds (items at CERT_READY blocked by PO Pending / release_allowed == False; exclude cancelled)
     held_items = (
         db.query(JobItem)
         .join(Order, JobItem.order_id == Order.id)
         .options(joinedload(JobItem.order).joinedload(Order.customer))
         .filter(
+            Order.po_status != POStatus.CANCELLED,
             JobItem.status == JobStatus.CERT_READY,
             JobItem.release_allowed.is_(False),
         )

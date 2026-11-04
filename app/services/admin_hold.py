@@ -8,6 +8,9 @@ def sync_job_item_release(item: JobItem, po_status: POStatus) -> bool:
     """Enforce Admin Hold Logic on a single JobItem.
 
     Rules:
+    - If po_status == CANCELLED:
+      - Sets release_allowed = False
+      - Sets status = CANCELLED
     - If po_status == RECEIVED:
       - Automatically sets release_allowed = True
       - Moves any item in HOLD_ADMIN to CERT_READY
@@ -15,7 +18,10 @@ def sync_job_item_release(item: JobItem, po_status: POStatus) -> bool:
       - Sets release_allowed = False
       - Moves any item in CERT_READY to HOLD_ADMIN
     """
-    if po_status == POStatus.RECEIVED:
+    if po_status == POStatus.CANCELLED:
+        item.status = JobStatus.CANCELLED
+        item.release_allowed = False
+    elif po_status == POStatus.RECEIVED:
         if item.status == JobStatus.HOLD_ADMIN:
             item.status = JobStatus.CERT_READY
         item.release_allowed = True

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import json
 import zipfile
 from datetime import date, timedelta
 
@@ -305,7 +306,7 @@ def test_http_download_docs(client: TestClient, sample_order: Order) -> None:
 def test_http_order_detail_view(client: TestClient, sample_order: Order) -> None:
     res = client.get(f"/orders/{sample_order.id}")
     assert res.status_code == 200
-    assert "Alur Kerja Operasional 7 Tahap" in res.text
+    assert "Alur Kerja Operasional 8 Tahap" in res.text
     assert sample_order.quotation_no in res.text
     assert "Unduh Penawaran" in res.text
 
@@ -332,32 +333,46 @@ def test_http_quick_action_automations(
     assert order.quotation_no is not None
     assert "/PNW-NSI/" in order.quotation_no
 
-    # 2. Action gen ordersheet
-    res = client.post(
+    # 2. Action gen ordersheet without items / received_date should redirect with error
+    res_err = client.post(
         f"/orders/{order.id}/actions/gen-ordersheet", follow_redirects=True
     )
-    assert res.status_code == 200
-    db_session.refresh(order)
-    assert order.ordersheet_no is not None
-    assert order.ordersheet_no.startswith("K.")
+    assert res_err.status_code == 200
+    assert "error=" in str(res_err.url) or "tidak dapat dibuat" in res_err.text
 
-    # 3. Action gen BAST without ready items should redirect with error
-    res = client.post(f"/orders/{order.id}/actions/gen-bast-tt", follow_redirects=True)
-    assert res.status_code == 200
-    # Must fail because no items are CERT_READY
-    assert "error=" in str(res.url) or "tidak dapat diterbitkan" in res.text
-
-    # Now add a ready item
+    # Add item and set received_date
     it = JobItem(
         order_id=order.id,
         qr_tag="QR-ACTION-01",
         instrument_name="Test Tool",
         serial_number="SN-01",
         scope=Scope.PRESSURE,
-        status=JobStatus.CERT_READY,
+        status=JobStatus.RECEIVED,
         release_allowed=True,
     )
     db_session.add(it)
+    order.received_date = date.today()
+    db_session.commit()
+
+    # Now gen ordersheet succeeds and moves RECEIVED to QUEUED
+    res = client.post(
+        f"/orders/{order.id}/actions/gen-ordersheet", follow_redirects=True
+    )
+    assert res.status_code == 200
+    db_session.refresh(order)
+    db_session.refresh(it)
+    assert order.ordersheet_no is not None
+    assert order.ordersheet_no.startswith("K.")
+    assert it.status == JobStatus.QUEUED
+
+    # 3. Action gen BAST while item is QUEUED should redirect with error
+    res = client.post(f"/orders/{order.id}/actions/gen-bast-tt", follow_redirects=True)
+    assert res.status_code == 200
+    # Must fail because item is not CERT_READY
+    assert "error=" in str(res.url) or "tidak dapat diterbitkan" in res.text
+
+    # Now update item to CERT_READY
+    it.status = JobStatus.CERT_READY
     db_session.commit()
 
     # Now BAST & TT should succeed
@@ -622,4 +637,202 @@ def test_tt_docx_company_name_and_keterangan(
     )
     assert res.status_code == 200
     assert "wordprocessingml" in res.headers["content-type"]
+
+
+def test_8stages_pipeline_end_to_end(
+    client: TestClient, db_session: Session, sample_customer: Customer
+) -> None:
+    # --- Tahap 1 & 2: Permintaan Customer & Pembuatan Penawaran ---
+    order_data = {
+        "order_id": 0,
+        "customer_id": sample_customer.id,
+        "job_info": "Kalibrasi Standar",
+        "service_type": "IN_HOUSE",
+        "po_status": "PENDING",
+        "terms_pembayaran": "30 Hari",
+        "invoice_status": "UNBILLED",
+    }
+    res = client.post("/orders/save", data=order_data, follow_redirects=True)
+    assert res.status_code == 200
+
+    order = (
+        db_session.query(Order)
+        .filter(Order.customer_id == sample_customer.id)
+        .order_by(Order.id.desc())
+        .first()
+    )
+    assert order is not None
+    # Quotation generated (Stage 2), but ordersheet NOT generated yet!
+    assert order.quotation_no is not None
+    assert "/PNW-NSI/" in order.quotation_no
+    assert order.ordersheet_no is None
+    assert order.received_date is None
+
+    # Intake instrument without physical arrival -> status should be ORDERED
+    items_json = json.dumps([
+        {
+            "instrument_name": "Digital Manometer",
+            "specification_desc": "0 - 10 bar",
+            "serial_number": "DM-001",
+            "scope": "PRESSURE",
+            "qty": 1,
+            "unit": "Unit",
+            "unit_price": 500000,
+            "subcontractor_id": "",
+            "subcon_price": 0,
+        }
+    ])
+    res = client.post(
+        f"/orders/{order.id}/bast/save",
+        data={"items_json": items_json, "is_physical_intake": "false"},
+        follow_redirects=True,
+    )
+    assert res.status_code == 200
+    db_session.refresh(order)
+    assert len(order.job_items) == 1
+    item = order.job_items[0]
+    assert item.status == JobStatus.ORDERED
+    assert order.received_date is None
+
+    # Kanban should NOT show ORDERED items
+    k_res = client.get("/kanban")
+    assert "DM-001" not in k_res.text
+
+    # --- Tahap 3: Penerimaan PO Customer ---
+    res = client.post(
+        f"/orders/{order.id}/actions/confirm-po",
+        data={"po_no": "PO-CUST-2026-X"},
+        follow_redirects=True,
+    )
+    assert res.status_code == 200
+    db_session.refresh(order)
+    assert order.po_status == POStatus.RECEIVED
+    assert order.po_no == "PO-CUST-2026-X"
+
+    # --- Tahap 4: Penerimaan Fisik Alat di Laboratorium ---
+    res = client.post(
+        f"/orders/{order.id}/actions/receive-items",
+        follow_redirects=True,
+    )
+    assert res.status_code == 200
+    db_session.refresh(order)
+    db_session.refresh(item)
+    assert order.received_date == date.today()
+    assert item.status == JobStatus.RECEIVED
+
+    # Now item should appear in Kanban board under RECEIVED column!
+    k_res = client.get("/kanban")
+    assert "DM-001" in k_res.text
+
+    # --- Tahap 5: Pembuatan Ordersheet ---
+    res = client.post(
+        f"/orders/{order.id}/actions/gen-ordersheet",
+        follow_redirects=True,
+    )
+    assert res.status_code == 200
+    db_session.refresh(order)
+    db_session.refresh(item)
+    assert order.ordersheet_no is not None
+    assert order.ordersheet_no.startswith("K.")
+    # Moving from RECEIVED to QUEUED
+    assert item.status == JobStatus.QUEUED
+
+    # --- Tahap 6: Pembuatan Tanda Terima (TT) ---
+    res = client.post(
+        f"/orders/{order.id}/actions/gen-tt",
+        follow_redirects=True,
+    )
+    assert res.status_code == 200
+    db_session.refresh(order)
+    assert order.tt_no is not None
+    assert "/TT-NSI/" in order.tt_no
+    assert order.returned_date is not None
+
+    # --- Tahap 7: Pembuatan BA Selesainya Pekerjaan ---
+    # Attempting BA while item is still QUEUED must fail
+    res = client.post(
+        f"/orders/{order.id}/actions/gen-ba",
+        follow_redirects=True,
+    )
+    assert "error=" in str(res.url) or "belum selesai" in res.text
+    db_session.refresh(order)
+    assert order.bast_no is None
+
+    # Finish calibration (CERT_READY)
+    item.status = JobStatus.CERT_READY
+    db_session.commit()
+
+    # Now BA should succeed
+    res = client.post(
+        f"/orders/{order.id}/actions/gen-ba",
+        follow_redirects=True,
+    )
+    assert res.status_code == 200
+    db_session.refresh(order)
+    assert order.bast_no is not None
+    assert "/BAP-NSI/" in order.bast_no
+
+    # --- Tahap 8: Pembuatan Invoice ---
+    res = client.post(
+        f"/orders/{order.id}/actions/gen-invoice",
+        follow_redirects=True,
+    )
+    assert res.status_code == 200
+    db_session.refresh(order)
+    assert order.invoice_no is not None
+    assert "/INV-NSI/" in order.invoice_no
+    assert order.invoice_status == InvoiceStatus.INVOICED
+
+
+def test_order_cancellation_pipeline_and_exclusions(
+    client: TestClient, db_session: Session, sample_order: Order
+) -> None:
+    # Initial: sample_order is RECEIVED with 2 CERT_READY items
+    assert sample_order.po_status == POStatus.RECEIVED
+    assert len(sample_order.job_items) == 2
+
+    # Cancel order via action endpoint
+    res = client.post(
+        f"/orders/{sample_order.id}/actions/cancel-order",
+        follow_redirects=True,
+    )
+    assert res.status_code == 200
+    db_session.refresh(sample_order)
+    assert sample_order.po_status == POStatus.CANCELLED
+
+    # All items must be marked CANCELLED with release_allowed=False
+    for it in sample_order.job_items:
+        db_session.refresh(it)
+        assert it.status == JobStatus.CANCELLED
+        assert it.release_allowed is False
+
+    # Check Kanban board: cancelled items must be excluded!
+    k_res = client.get("/kanban")
+    assert sample_order.job_items[0].serial_number not in k_res.text
+
+    # Check Daily Alerts: SLA and Admin hold alerts must exclude cancelled orders
+    from app.services.alerts import generate_daily_alerts
+    summary = generate_daily_alerts(db_session, today=date.today())
+    alert_item_ids = [a.item_id for a in summary.sla_alerts] + [a.item_id for a in summary.admin_holds]
+    for it in sample_order.job_items:
+        assert it.id not in alert_item_ids
+
+    # Document generation guardrails: Ordersheet, TT, BA, and Invoice must raise 403 Forbidden!
+    from fastapi import HTTPException
+    with pytest.raises(HTTPException) as exc_ordersheet:
+        generate_ordersheet_xlsx(sample_order)
+    assert exc_ordersheet.value.status_code == 403
+
+    with pytest.raises(HTTPException) as exc_tt:
+        generate_tt_docx(sample_order)
+    assert exc_tt.value.status_code == 403
+
+    with pytest.raises(HTTPException) as exc_ba:
+        generate_ba_docx(sample_order)
+    assert exc_ba.value.status_code == 403
+
+    with pytest.raises(HTTPException) as exc_inv:
+        generate_invoice_docx(sample_order)
+    assert exc_inv.value.status_code == 403
+
 

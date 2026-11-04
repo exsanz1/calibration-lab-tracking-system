@@ -16,6 +16,10 @@
                 <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
                     PO RECEIVED
                 </span>
+                {% elif order.po_status.value == 'CANCELLED' %}
+                <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+                    CANCELLED
+                </span>
                 {% else %}
                 <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
                     HOLD ADMIN (PO PENDING)
@@ -61,14 +65,14 @@
     </div>
     {% endif %}
 
-    <!-- 7-Stage Workflow Progress Card -->
+    <!-- 8-Stage Workflow Progress Card -->
     <div class="bg-surface rounded-2xl border border-slate-200 p-6 shadow-sm mb-6">
         <div class="flex items-center justify-between mb-4">
             <div>
                 <h2 class="text-base font-bold text-text-main flex items-center gap-2">
-                    <span>🔄</span> Alur Kerja Operasional 7 Tahap (PT. NAM Sae Indonesia)
+                    <span>🔄</span> Alur Kerja Operasional 8 Tahap (PT. NAM Sae Indonesia)
                 </h2>
-                <p class="text-xs text-text-muted mt-0.5">Penawaran → PO → Ordersheet → Penerimaan Alat → Pengerjaan Alat → Pengembalian Alat (TT + BA) → Invoice</p>
+                <p class="text-xs text-text-muted mt-0.5">1. Permintaan Customer → 2. Pembuatan Penawaran → 3. Penerimaan PO / Cancel → 4. Penerimaan Alat → 5. Pembuatan Ordersheet → 6. TT Pengembalian → 7. BA Selesai → 8. Invoice</p>
             </div>
             <form method="post" action="/orders/{{ order.id }}/actions/recalc">
                 <button type="submit" class="text-xs text-text-muted hover:text-brand-primary flex items-center gap-1 font-medium">
@@ -77,14 +81,23 @@
             </form>
         </div>
 
+        {% if order.po_status.value == 'CANCELLED' %}
+        <div class="mb-4 p-4 rounded-xl border border-rose-200 bg-rose-50 text-rose-800 text-xs font-semibold flex items-center gap-2.5 shadow-sm">
+            <span class="text-rose-600 font-bold text-base">✕</span>
+            <span>Pesanan ini telah <strong>DIBATALKAN (CANCELLED)</strong>. Seluruh instrumen dan dokumen lanjutan dinonaktifkan.</span>
+        </div>
+        {% endif %}
+
         <!-- Progress Steps Tracker -->
-        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+        <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5">
             {% for s in stages %}
             <div class="rounded-xl p-3 border transition-all flex flex-col justify-between
                         {% if s.done %}
                         bg-sky-50/50 border-sky-200 text-slate-800
-                        {% elif s.num == current_step %}
+                        {% elif s.num == current_step and order.po_status.value != 'CANCELLED' %}
                         bg-amber-50/60 border-amber-300 ring-2 ring-amber-200/50 text-slate-800
+                        {% elif order.po_status.value == 'CANCELLED' and s.num == 3 %}
+                        bg-rose-50 border-rose-300 text-rose-800
                         {% else %}
                         bg-slate-50/60 border-slate-200 text-slate-400
                         {% endif %}">
@@ -92,22 +105,24 @@
                     <span class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold
                                 {% if s.done %}
                                 bg-brand-primary text-white
-                                {% elif s.num == current_step %}
+                                {% elif s.num == current_step and order.po_status.value != 'CANCELLED' %}
                                 bg-amber-500 text-white
+                                {% elif order.po_status.value == 'CANCELLED' and s.num == 3 %}
+                                bg-rose-600 text-white
                                 {% else %}
                                 bg-slate-200 text-slate-500
                                 {% endif %}">
                         {{ s.num }}
                     </span>
-                    <span class="text-[11px] font-bold">
-                        {% if s.done %}✓ Selesai{% elif s.num == current_step %}Sedang Berjalan{% else %}Menunggu{% endif %}
+                    <span class="text-[10px] font-bold">
+                        {% if s.done %}✓ Selesai{% elif order.po_status.value == 'CANCELLED' and s.num == 3 %}Batal{% elif s.num == current_step %}Proses{% else %}Menunggu{% endif %}
                     </span>
                 </div>
                 <div>
-                    <div class="text-xs font-bold {% if s.done or s.num == current_step %}text-slate-900{% else %}text-slate-500{% endif %}">
+                    <div class="text-xs font-bold {% if s.done or (s.num == current_step and order.po_status.value != 'CANCELLED') %}text-slate-900{% elif order.po_status.value == 'CANCELLED' and s.num == 3 %}text-rose-900{% else %}text-slate-500{% endif %}">
                         {{ s.name }}
                     </div>
-                    <div class="text-[11px] font-mono truncate mt-0.5 {% if s.done %}text-brand-primary font-semibold{% else %}text-slate-400{% endif %}">
+                    <div class="text-[10px] font-mono truncate mt-0.5 {% if s.done %}text-brand-primary font-semibold{% else %}text-slate-400{% endif %}">
                         {{ s.code or '-' }}
                     </div>
                 </div>
@@ -115,10 +130,11 @@
             {% endfor %}
         </div>
 
-        <!-- Quick Generator Actions -->
-        <div class="mt-5 pt-4 border-t border-slate-100 flex flex-wrap items-center gap-2">
-            <span class="text-xs font-bold text-text-muted mr-1">Otomasi Nomor:</span>
+        <!-- Quick Generator & Workflow Actions -->
+        <div class="mt-5 pt-4 border-t border-slate-100 flex flex-wrap items-center gap-2.5">
+            <span class="text-xs font-bold text-text-muted mr-1">Aksi & Otomasi:</span>
 
+            <!-- Tahap 2: Penawaran -->
             <form method="post" action="/orders/{{ order.id }}/actions/gen-quotation" class="inline">
                 <button type="submit" class="px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors
                                              {% if order.quotation_no %}border-slate-200 text-slate-700 bg-white hover:bg-slate-50{% else %}border-brand-primary bg-brand-subtle text-brand-primary hover:bg-sky-100{% endif %}">
@@ -126,28 +142,74 @@
                 </button>
             </form>
 
+            <!-- Tahap 3: PO Customer / Cancel -->
+            {% if order.po_status.value == 'PENDING' %}
+            <form method="post" action="/orders/{{ order.id }}/actions/confirm-po" class="inline-flex items-center gap-1">
+                <input type="text" name="po_no" placeholder="No. PO Customer" value="{{ order.po_no or '' }}"
+                       class="px-2.5 py-1 rounded-lg border border-slate-300 text-xs bg-white w-36 outline-none focus:ring-1 focus:ring-emerald-500">
+                <button type="submit" class="px-3 py-1.5 rounded-lg border border-emerald-500 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs font-semibold transition-colors">
+                    ✓ Konfirmasi PO
+                </button>
+            </form>
+            <form method="post" action="/orders/{{ order.id }}/actions/cancel-order" class="inline"
+                  onsubmit="return confirm('Apakah Anda yakin ingin MEMBATALKAN penawaran / pesanan ini? Seluruh instrumen akan berstatus CANCELLED.')">
+                <button type="submit" class="px-3 py-1.5 rounded-lg border border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100 text-xs font-semibold transition-colors">
+                    ✕ Batalkan Penawaran
+                </button>
+            </form>
+            {% elif order.po_status.value == 'RECEIVED' %}
+            <span class="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg">
+                ✓ PO: {{ order.po_no or 'Yes' }}
+            </span>
+            {% endif %}
+
+            <!-- Tahap 4: Penerimaan Fisik Alat -->
+            {% set has_ordered = order.job_items | selectattr('status.value', 'equalto', 'ORDERED') | list | length > 0 %}
+            {% if (has_ordered or not order.received_date) and order.po_status.value != 'CANCELLED' %}
+            <form method="post" action="/orders/{{ order.id }}/actions/receive-items" class="inline"
+                  onsubmit="return confirm('Konfirmasi bahwa fisik seluruh instrumen telah diterima di laboratorium?')">
+                <button type="submit" class="px-3 py-1.5 rounded-lg border border-sky-500 bg-sky-50 text-brand-primary hover:bg-sky-100 text-xs font-semibold transition-colors">
+                    📦 Konfirmasi Terima Alat
+                </button>
+            </form>
+            {% endif %}
+
+            <!-- Tahap 5: Ordersheet -->
+            {% if order.po_status.value != 'CANCELLED' %}
             <form method="post" action="/orders/{{ order.id }}/actions/gen-ordersheet" class="inline">
                 <button type="submit" class="px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors
-                                             {% if order.ordersheet_no %}border-slate-200 text-slate-700 bg-white hover:bg-slate-50{% else %}border-brand-primary bg-brand-subtle text-brand-primary hover:bg-sky-100{% endif %}">
+                                             {% if order.ordersheet_no %}border-slate-200 text-slate-700 bg-white hover:bg-slate-50{% else %}border-brand-primary bg-brand-subtle text-brand-primary hover:bg-sky-100{% endif %}"
+                        {% if not order.received_date %}title="Syarat: Fisik alat harus diterima terlebih dahulu"{% endif %}>
                     {% if order.ordersheet_no %}Perbarui Ordersheet No{% else %}⚡ Terbitkan No. Ordersheet{% endif %}
                 </button>
             </form>
 
-            <form method="post" action="/orders/{{ order.id }}/actions/gen-bast-tt" class="inline">
+            <!-- Tahap 6: Tanda Terima (TT) -->
+            <form method="post" action="/orders/{{ order.id }}/actions/gen-tt" class="inline">
                 <button type="submit" class="px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors
-                                             {% if order.bast_no %}border-slate-200 text-slate-700 bg-white hover:bg-slate-50{% else %}border-emerald-500 bg-emerald-50 text-emerald-700 hover:bg-emerald-100{% endif %}"
-                        title="Syarat: PO sudah RECEIVED dan semua alat CERT_READY / DELIVERED">
-                    {% if order.bast_no %}Perbarui No. BAST & TT{% else %}⚡ Terbitkan BAST & TT{% endif %}
+                                             {% if order.tt_no %}border-slate-200 text-slate-700 bg-white hover:bg-slate-50{% else %}border-brand-primary bg-brand-subtle text-brand-primary hover:bg-sky-100{% endif %}">
+                    {% if order.tt_no %}Perbarui TT{% else %}⚡ Terbitkan TT{% endif %}
                 </button>
             </form>
 
+            <!-- Tahap 7: Berita Acara (BA) -->
+            <form method="post" action="/orders/{{ order.id }}/actions/gen-ba" class="inline">
+                <button type="submit" class="px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors
+                                             {% if order.bast_no %}border-slate-200 text-slate-700 bg-white hover:bg-slate-50{% else %}border-emerald-500 bg-emerald-50 text-emerald-700 hover:bg-emerald-100{% endif %}"
+                        title="Syarat: PO status RECEIVED dan seluruh instrumen telah CERT_READY / DELIVERED">
+                    {% if order.bast_no %}Perbarui BA{% else %}⚡ Terbitkan BA{% endif %}
+                </button>
+            </form>
+
+            <!-- Tahap 8: Invoice -->
             <form method="post" action="/orders/{{ order.id }}/actions/gen-invoice" class="inline">
                 <button type="submit" class="px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors
                                              {% if order.invoice_no %}border-slate-200 text-slate-700 bg-white hover:bg-slate-50{% else %}border-indigo-500 bg-indigo-50 text-indigo-700 hover:bg-indigo-100{% endif %}"
-                        title="Syarat: Dokumen BAST sudah diterbitkan">
+                        title="Syarat: Dokumen BA sudah diterbitkan">
                     {% if order.invoice_no %}Perbarui No. Invoice{% else %}⚡ Terbitkan No. Invoice{% endif %}
                 </button>
             </form>
+            {% endif %}
         </div>
     </div>
 
@@ -193,10 +255,18 @@
                     <div class="text-[11px] text-text-muted mt-1 font-mono truncate">{{ order.ordersheet_no or 'Belum dibuat' }}</div>
                 </div>
                 <div class="mt-4">
+                    {% if order.ordersheet_no and order.received_date and order.po_status.value != 'CANCELLED' %}
                     <a href="/orders/{{ order.id }}/docs/ordersheet"
                        class="w-full text-center block bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 font-semibold text-xs py-2 rounded-lg transition-colors">
                         Unduh Ordersheet
                     </a>
+                    {% else %}
+                    <button disabled
+                            class="w-full text-center block bg-slate-100 text-slate-400 font-medium text-xs py-2 rounded-lg cursor-not-allowed"
+                            title="Tersedia setelah alat diterima secara fisik dan Ordersheet diterbitkan">
+                        Terkunci (Tahap 4 & 5)
+                    </button>
+                    {% endif %}
                 </div>
             </div>
 
@@ -211,6 +281,7 @@
                     <div class="text-[11px] text-text-muted mt-1 font-mono truncate">{{ order.tt_no or 'Belum dibuat' }}</div>
                 </div>
                 <div class="mt-4 space-y-1.5">
+                    {% if order.tt_no and order.po_status.value != 'CANCELLED' %}
                     <a href="/orders/{{ order.id }}/docs/tt?keterangan=Barang"
                        class="w-full text-center block bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 font-semibold text-xs py-2 rounded-lg transition-colors">
                         Unduh TT (Barang)
@@ -221,11 +292,19 @@
                         <span>•</span>
                         <a href="/orders/{{ order.id }}/docs/tt?keterangan=Barang+%26+Sertifikat" class="text-brand-primary hover:underline">Keduanya</a>
                     </div>
+                    {% else %}
+                    <button disabled
+                            class="w-full text-center block bg-slate-100 text-slate-400 font-medium text-xs py-2 rounded-lg cursor-not-allowed"
+                            title="Tersedia setelah nomor Tanda Terima (TT) diterbitkan">
+                        Terkunci (TT Belum)
+                    </button>
+                    {% endif %}
                 </div>
             </div>
 
             <!-- 4. Berita Acara Penyelesaian (BA) -->
-            {% set can_gen_ba = (order.po_status.value == 'RECEIVED' and stages[4].done) %}
+            {% set all_ready = (order.job_items | length > 0 and order.job_items | selectattr('status.value', 'in', ['CERT_READY', 'DELIVERED']) | list | length == order.job_items | length) %}
+            {% set can_gen_ba = (order.po_status.value == 'RECEIVED' and all_ready and order.bast_no is not none) %}
             <div class="border border-slate-200 rounded-xl p-4 flex flex-col justify-between bg-slate-50/50 hover:border-emerald-500/50 transition-colors">
                 <div>
                     <div class="flex items-center justify-between mb-2">
@@ -244,7 +323,7 @@
                     {% else %}
                     <button disabled
                             class="w-full text-center block bg-slate-100 text-slate-400 font-medium text-xs py-2 rounded-lg cursor-not-allowed"
-                            title="Tersedia jika PO Masuk dan seluruh instrumen Selesai Kalibrasi">
+                            title="Tersedia jika PO Masuk, seluruh instrumen Selesai Kalibrasi, dan nomor BA telah diterbitkan">
                         Terkunci (PO/Alat)
                     </button>
                     {% endif %}
@@ -252,7 +331,7 @@
             </div>
 
             <!-- 5. Invoice Tagihan -->
-            {% set can_gen_inv = (order.bast_no is not none and order.bast_no != '') %}
+            {% set can_gen_inv = (order.bast_no is not none and order.bast_no != '' and order.invoice_no is not none and order.po_status.value != 'CANCELLED') %}
             <div class="border border-slate-200 rounded-xl p-4 flex flex-col justify-between bg-slate-50/50 hover:border-indigo-500/50 transition-colors">
                 <div>
                     <div class="flex items-center justify-between mb-2">
@@ -271,8 +350,8 @@
                     {% else %}
                     <button disabled
                             class="w-full text-center block bg-slate-100 text-slate-400 font-medium text-xs py-2 rounded-lg cursor-not-allowed"
-                            title="Tersedia setelah Berita Acara (BAST) diterbitkan">
-                        Terkunci (BAST Belum)
+                            title="Tersedia setelah Berita Acara (BAST) dan Invoice diterbitkan">
+                        Terkunci (BAST/Invoice)
                     </button>
                     {% endif %}
                 </div>
@@ -434,7 +513,11 @@
                         </td>
                         <td class="px-4 py-3 text-center whitespace-nowrap">
                             <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold
-                                  {% if item.status.value == 'CERT_READY' or item.status.value == 'DELIVERED' %}
+                                  {% if item.status.value == 'ORDERED' %}
+                                  bg-slate-100 text-slate-700 border border-slate-300
+                                  {% elif item.status.value == 'CANCELLED' %}
+                                  bg-rose-50 text-rose-700 border border-rose-200
+                                  {% elif item.status.value == 'CERT_READY' or item.status.value == 'DELIVERED' %}
                                   bg-emerald-50 text-emerald-700 border border-emerald-200
                                   {% elif item.status.value == 'HOLD_ADMIN' %}
                                   bg-amber-50 text-amber-700 border border-amber-200

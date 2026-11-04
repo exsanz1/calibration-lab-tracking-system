@@ -182,7 +182,48 @@ def seed() -> None:
             ppn_amount=0,
             grand_total=0,
         )
-        orders = [o1, o2, o3]
+
+        # Order 4: At Stage 1 & 2 (Customer Request & Quotation; Alat Belum Diterima / ORDERED)
+        o4 = Order(
+            customer_id=c1.id,
+            job_info="Kalibrasi",
+            quotation_no="0214/PNW-NSI/X/2026",
+            quotation_date=today - timedelta(days=1),
+            revision_no="00",
+            notes="Permintaan penawaran harga kalibrasi thermocouple & RTD",
+            po_status=POStatus.PENDING,
+            service_type=ServiceType.IN_HOUSE,
+            ordersheet_no=None,
+            received_date=None,
+            target_sla_date=None,
+            invoice_status=InvoiceStatus.UNBILLED,
+            subtotal=0,
+            ppn_percent=11,
+            ppn_amount=0,
+            grand_total=0,
+        )
+
+        # Order 5: Cancelled Order (Penawaran Dibatalkan / CANCELLED)
+        o5 = Order(
+            customer_id=c2.id,
+            job_info="Kalibrasi",
+            quotation_no="0215/PNW-NSI/X/2026",
+            quotation_date=today - timedelta(days=10),
+            revision_no="00",
+            notes="Penawaran dibatalkan karena customer membatalkan project",
+            po_status=POStatus.CANCELLED,
+            service_type=ServiceType.IN_HOUSE,
+            ordersheet_no=None,
+            received_date=None,
+            target_sla_date=None,
+            invoice_status=InvoiceStatus.UNBILLED,
+            subtotal=0,
+            ppn_percent=11,
+            ppn_amount=0,
+            grand_total=0,
+        )
+
+        orders = [o1, o2, o3, o4, o5]
         db.add_all(orders)
         db.flush()
 
@@ -314,7 +355,51 @@ def seed() -> None:
             release_allowed=True,
         )
 
-        job_items = [item1_1, item1_2, item2_1, item2_2, item3_1, item3_2]
+        # Items for Order 4 (Stage 1/2: Customer Request, Physical Alat ORDERED)
+        item4_1 = JobItem(
+            order_id=o4.id,
+            qr_tag="QR-2026-0048-001",
+            instrument_name="Industrial Thermocouple Type K",
+            specification_desc="Thermocouple Sheath 6mm Length 300mm Range 0-800C",
+            brand="Chino",
+            model="C015",
+            serial_number="TC-CH-202602",
+            scope=Scope.TEMP,
+            status=JobStatus.ORDERED,
+            assigned_tech=None,
+            accessories="Terminal Head",
+            intake_condition="GOOD",
+            master_equipment_id=None,
+            qty=1,
+            unit="Unit",
+            unit_price=650000,
+            subcon_price=0,
+            release_allowed=False,
+        )
+
+        # Items for Order 5 (Cancelled Order: CANCELLED)
+        item5_1 = JobItem(
+            order_id=o5.id,
+            qr_tag="QR-2026-0049-001",
+            instrument_name="Micrometer Outside 0-25mm",
+            specification_desc="Outside Micrometer Range 0 - 25 mm Resolution 0.001mm",
+            brand="Mitutoyo",
+            model="103-137",
+            serial_number="MIC-M-998811",
+            scope=Scope.DIMENSION,
+            status=JobStatus.CANCELLED,
+            assigned_tech=None,
+            accessories="Setting Standard & Case",
+            intake_condition="GOOD",
+            master_equipment_id=None,
+            qty=1,
+            unit="Unit",
+            unit_price=400000,
+            subcon_price=0,
+            release_allowed=False,
+        )
+
+        job_items = [item1_1, item1_2, item2_1, item2_2, item3_1, item3_2, item4_1, item5_1]
         db.add_all(job_items)
         db.flush()
 

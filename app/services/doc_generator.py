@@ -209,6 +209,22 @@ def generate_ordersheet_xlsx(order: Order) -> bytes:
 
     (Text Box 2 company header and logos).
     """
+    if order.po_status == POStatus.CANCELLED:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Ordersheet tidak dapat dicetak: Pesanan ini telah dibatalkan (CANCELLED).",
+        )
+    if not order.job_items:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Ordersheet tidak dapat dicetak: Belum ada instrumen terdaftar.",
+        )
+    if not order.received_date:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Ordersheet hanya dapat dibuat setelah alat diterima dari customer (Tahap 4).",
+        )
+
     tpl_path = TEMPLATES_DOCS_DIR / "template_ordersheet.xlsx"
     if not tpl_path.exists():
         raise FileNotFoundError(f"Template not found at {tpl_path}")
@@ -321,6 +337,17 @@ def generate_tt_docx(
     order: Order, recipient_name: str | None = None, keterangan: str = "Barang"
 ) -> bytes:
     """Generate Tanda Terima Pengembalian Barang (.docx) using template_tt.docx."""
+    if order.po_status == POStatus.CANCELLED:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Tanda Terima tidak dapat dicetak: Pesanan ini telah dibatalkan (CANCELLED).",
+        )
+    if not order.job_items:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Tanda Terima tidak dapat dicetak: Belum ada instrumen terdaftar.",
+        )
+
     tpl_path = TEMPLATES_DOCS_DIR / "template_tt.docx"
     stream = prepare_docx_template_bytes(tpl_path)
     doc = DocxTemplate(stream)
@@ -367,6 +394,12 @@ def generate_ba_docx(order: Order) -> bytes:
     Raises HTTP 403 Forbidden unless order.po_status == POStatus.RECEIVED
     and all items are CERT_READY or DELIVERED.
     """
+    if order.po_status == POStatus.CANCELLED:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Berita Acara tidak dapat dicetak: Pesanan ini telah dibatalkan (CANCELLED).",
+        )
+
     if order.po_status != POStatus.RECEIVED:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -503,6 +536,12 @@ def generate_invoice_docx(order: Order) -> bytes:
     Guardrail:
     Raises HTTP 403 Forbidden unless order.bast_no is issued.
     """
+    if order.po_status == POStatus.CANCELLED:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Invoice tidak dapat diterbitkan: Pesanan ini telah dibatalkan (CANCELLED).",
+        )
+
     if not order.bast_no or not order.bast_no.strip():
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
